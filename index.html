@@ -257,29 +257,43 @@ function categorizeSvgs(files) {
 /* ─── MAIN APP ─── */
 function App() {
   const [charIdx, setCharIdx] = useState(null);
-  const [convoFiles, setConvoFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [loadingFiles, setLoadingFiles] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
   const [corsError, setCorsError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [searchIndex, setSearchIndex] = useState({}); // { charDir: { filename: ["line1","line2",...] } }
-  const [searchIndexLower, setSearchIndexLower] = useState({}); // pre-lowercased for fast search
-  const [indexing, setIndexing] = useState(false);
-  const [indexProgress, setIndexProgress] = useState({ done: 0, total: 0 });
   const fileInputRef = useRef(null);
-  const searchInputRef = useRef(null);
-  const indexAbortRef = useRef(null);
   const debounceRef = useRef(null);
+
+  // Global cache: { charDir: { files: [...], index: { file: [lines] }, indexLower: { file: [lines] } } }
+  const [cache, setCache] = useState(() => {
+    try {
+      const saved = localStorage.getItem("wf1999_cache_v2");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+  const [globalProgress, setGlobalProgress] = useState({ char: "", done: 0, total: 0, charsLeft: 0 });
+  const [isPreloading, setIsPreloading] = useState(false);
+  const preloadAbortRef = useRef(null);
 
   const char = charIdx !== null ? CHARACTERS[charIdx] : null;
   const accentColor = char?.color || "#71717a";
+  const charCache = char ? cache[char.dir] : null;
+  const convoFiles = charCache?.files || [];
 
-  // Extract all dialog text from an SVG string (lightweight - no full analysis)
+  // Save cache to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("wf1999_cache_v2", JSON.stringify(cache));
+    } catch {
+      // localStorage full — silently continue with in-memory cache
+    }
+  }, [cache]);
+
+  // Extract all dialog text from an SVG string
   const extractDialogText = useCallback((svgText) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgText, "image/svg+xml");
@@ -287,7 +301,6 @@ function App() {
     doc.querySelectorAll("g.node").forEach((g) => {
       const shape = g.querySelector("ellipse") || g.querySelector("polygon");
       const stroke = shape?.getAttribute("stroke") || "";
-      // Only grab actual dialog (blue) and player choices (red), skip mechanics
       if (stroke !== "blue" && stroke !== "red") return;
       const texts = [];
       g.querySelectorAll("text").forEach((t) => {
@@ -300,19 +313,35 @@ function App() {
     return lines;
   }, []);
 
-  // Build search index for current character (parallel batch fetch)
-  const buildSearchIndex = useCallback(async (character, files) => {
-    if (!character || files.length === 0) return;
-    if (searchIndex[character.dir]) return;
-    setIndexing(true);
-    setIndexProgress({ done: 0, total: files.length });
-    const abort = { cancelled: false };
-    indexAbortRef.current = abort;
+  // Fetch file list for a single character
+  const fetchCharFiles = useCallback(async (character) => {
+    const url = CORS_PROXY + encodeURIComponent(BASE + character.dir + "/");
+    const res = await fetch(url);
+    const html = await res.text();
+    const matches = [...html.matchAll(/href="([^"]*\.svg)"/gi)];
+    return matches.map((m) => m[1]).sort();
+  }, []);
+
+  // Index one character: fetch file list + all SVG dialog text
+  const indexCharacter = useCallback(async (character, abort, onProgress) => {
+    let files;
+    // Use cached file list if available
+    if (cache[character.dir]?.files?.length > 0) {
+      files = cache[character.dir].files;
+    } else {
+      files = await fetchCharFiles(character);
+      if (files.length === 0) return null;
+    }
+    // Skip if already fully indexed
+    if (cache[character.dir]?.index && Object.keys(cache[character.dir].index).length >= files.length) {
+      return cache[character.dir];
+    }
     const idx = {};
+    const idxLower = {};
     let done = 0;
-    const BATCH = 10;
+    const BATCH = 12;
     for (let i = 0; i < files.length; i += BATCH) {
-      if (abort.cancelled) break;
+      if (abort.cancelled) return null;
       const batch = files.slice(i, i + BATCH);
       const results = await Promise.allSettled(
         batch.map(async (f) => {
@@ -323,75 +352,79 @@ function App() {
       );
       for (const r of results) {
         if (r.status === "fulfilled") {
-          idx[r.value.file] = extractDialogText(r.value.text);
-        } else {
-          idx[batch[results.indexOf(r)]] = [];
+          const lines = extractDialogText(r.value.text);
+          idx[r.value.file] = lines;
+          idxLower[r.value.file] = lines.map(l => l.toLowerCase());
         }
       }
       done += batch.length;
-      if (!abort.cancelled) setIndexProgress({ done: Math.min(done, files.length), total: files.length });
+      if (onProgress) onProgress(Math.min(done, files.length), files.length);
     }
-    if (!abort.cancelled) {
-      setSearchIndex((prev) => ({ ...prev, [character.dir]: idx }));
-      // Pre-compute lowercase version for fast searching
-      const lowerIdx = {};
-      for (const [f, lines] of Object.entries(idx)) {
-        lowerIdx[f] = lines.map(l => l.toLowerCase());
+    return { files, index: idx, indexLower: idxLower };
+  }, [cache, fetchCharFiles, extractDialogText]);
+
+  // Preload ALL characters on page load
+  useEffect(() => {
+    const abort = { cancelled: false };
+    preloadAbortRef.current = abort;
+    const uncachedChars = CHARACTERS.filter(c => {
+      const cc = cache[c.dir];
+      return !cc?.index || !cc?.files?.length;
+    });
+    if (uncachedChars.length === 0) return;
+    setIsPreloading(true);
+    let charsLeft = uncachedChars.length;
+    (async () => {
+      for (const character of CHARACTERS) {
+        if (abort.cancelled) break;
+        // Skip already fully cached
+        const cc = cache[character.dir];
+        if (cc?.index && cc?.files?.length && Object.keys(cc.index).length >= cc.files.length) {
+          continue;
+        }
+        setGlobalProgress({ char: character.id, done: 0, total: 0, charsLeft });
+        try {
+          const result = await indexCharacter(character, abort, (done, total) => {
+            if (!abort.cancelled) setGlobalProgress({ char: character.id, done, total, charsLeft });
+          });
+          if (result && !abort.cancelled) {
+            setCache(prev => ({ ...prev, [character.dir]: result }));
+            charsLeft--;
+          }
+        } catch {
+          // Skip failed characters, continue with others
+        }
       }
-      setSearchIndexLower((prev) => ({ ...prev, [character.dir]: lowerIdx }));
-    }
-    setIndexing(false);
-  }, [searchIndex, extractDialogText]);
+      if (!abort.cancelled) setIsPreloading(false);
+    })();
+    return () => { abort.cancelled = true; };
+  }, []); // only on mount
 
   // Filtered file list based on search
   const getFilteredFiles = useCallback((files) => {
-    if (!debouncedQuery.trim()) return null; // null = show all
+    if (!debouncedQuery.trim()) return null;
     const q = debouncedQuery.toLowerCase();
-    const lowerIndex = char ? searchIndexLower[char.dir] : null;
+    const lowerIndex = charCache?.indexLower;
     if (!lowerIndex) return null;
     return files.filter((f) => {
       if (prettifyName(f).toLowerCase().includes(q)) return true;
       const lines = lowerIndex[f] || [];
       return lines.some((line) => line.includes(q));
     });
-  }, [debouncedQuery, searchIndexLower, char]);
+  }, [debouncedQuery, charCache]);
 
   // Get matching lines for a file (for search result preview)
   const getMatchingLines = useCallback((filename) => {
-    if (!debouncedQuery.trim() || !char) return [];
+    if (!debouncedQuery.trim() || !charCache) return [];
     const q = debouncedQuery.toLowerCase();
-    const charIndex = searchIndex[char.dir];
-    const lowerIndex = searchIndexLower[char.dir];
-    if (!charIndex || !lowerIndex) return [];
-    const lines = charIndex[filename] || [];
-    const lowerLines = lowerIndex[filename] || [];
+    const lines = charCache.index?.[filename] || [];
+    const lowerLines = charCache.indexLower?.[filename] || [];
     const matches = [];
     for (let i = 0; i < lowerLines.length && matches.length < 2; i++) {
       if (lowerLines[i].includes(q)) matches.push(lines[i]);
     }
     return matches;
-  }, [debouncedQuery, searchIndex, searchIndexLower, char]);
-
-  // Fetch conversation list for a character
-  const fetchFileList = useCallback(async (character) => {
-    setLoadingFiles(true);
-    setConvoFiles([]);
-    setError(null);
-    setCorsError(false);
-    try {
-      const url = CORS_PROXY + encodeURIComponent(BASE + character.dir + "/");
-      const res = await fetch(url);
-      const html = await res.text();
-      const matches = [...html.matchAll(/href="([^"]*\.svg)"/gi)];
-      const files = matches.map((m) => m[1]).sort();
-      if (files.length === 0) throw new Error("No files found");
-      setConvoFiles(files);
-    } catch {
-      setCorsError(true);
-      setConvoFiles([]);
-    }
-    setLoadingFiles(false);
-  }, []);
+  }, [debouncedQuery, charCache]);
 
   // Fetch and analyze one SVG
   const fetchAndAnalyze = useCallback(async (filename) => {
@@ -438,21 +471,22 @@ function App() {
     reader.readAsText(file);
   }, []);
 
+  // If selected character has no cached files yet, try fetching just the file list
   useEffect(() => {
-    if (char) fetchFileList(char);
-  }, [char, fetchFileList]);
-
-  // Auto-start indexing when file list loads
-  useEffect(() => {
-    if (char && convoFiles.length > 0 && !searchIndex[char.dir] && !indexing) {
-      buildSearchIndex(char, convoFiles);
+    if (char && !charCache?.files?.length) {
+      setCorsError(false);
+      fetchCharFiles(char).then(files => {
+        if (files.length > 0) {
+          setCache(prev => ({ ...prev, [char.dir]: { ...prev[char.dir], files } }));
+        }
+      }).catch(() => setCorsError(true));
     }
-  }, [char, convoFiles, searchIndex, indexing, buildSearchIndex]);
+  }, [char]);
 
-  // Debounce search input (200ms)
+  // Debounce search input (150ms)
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 200);
+    debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 150);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchQuery]);
 
@@ -479,7 +513,7 @@ function App() {
             return (
               <button key={c.id} onClick={() => {
                 setCharIdx(i); setSelectedFile(null); setAnalysis(null); setError(null); setSidebarOpen(false);
-                setSearchQuery(""); setDebouncedQuery(""); if (indexAbortRef.current) indexAbortRef.current.cancelled = true;
+                setSearchQuery(""); setDebouncedQuery("");
               }} style={{
                 display: "flex", alignItems: "center", gap: 8, width: "100%",
                 padding: "8px 10px", marginBottom: 2, borderRadius: 6, border: "none",
@@ -490,12 +524,29 @@ function App() {
                 borderLeft: active ? `2px solid ${c.color}` : "2px solid transparent",
               }}>
                 <span style={{ fontSize: 14 }}>{c.portrait}</span>
-                {c.id}
+                <span style={{ flex: 1 }}>{c.id}</span>
+                {cache[c.dir]?.index && <span style={{ fontSize: 8, color: "#4ade80", opacity: 0.6 }}>●</span>}
+                {isPreloading && globalProgress.char === c.id && <div style={{ width: 6, height: 6, border: "1.5px solid #60a5fa44", borderTopColor: "#60a5fa", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />}
               </button>
             );
           })}
         </div>
         <div style={{ padding: "10px", borderTop: "1px solid #1a1a24" }}>
+          {/* Global preload status */}
+          {isPreloading && (
+            <div style={{ marginBottom: 8, padding: "6px 8px", background: "#0f172a", border: "1px solid #1e3a5f", borderRadius: 6, fontSize: 10, color: "#60a5fa", fontFamily: "'Rajdhani', monospace", display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 8, height: 8, border: "2px solid #60a5fa44", borderTopColor: "#60a5fa", borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
+              Caching {globalProgress.char}... {globalProgress.done}/{globalProgress.total}
+            </div>
+          )}
+          {!isPreloading && Object.keys(cache).length > 0 && (
+            <div style={{ marginBottom: 8, padding: "6px 8px", background: "#052e1611", border: "1px solid #16a34a33", borderRadius: 6, fontSize: 10, color: "#4ade80", fontFamily: "'Rajdhani', monospace", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>✓ {Object.keys(cache).length}/{CHARACTERS.length} cached</span>
+              <button onClick={() => { localStorage.removeItem("wf1999_cache_v2"); setCache({}); location.reload(); }} style={{
+                background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 9, fontFamily: "'Rajdhani', monospace", textDecoration: "underline",
+              }}>Clear</button>
+            </div>
+          )}
           <input ref={fileInputRef} type="file" accept=".svg" onChange={handleFileUpload} style={{ display: "none" }} />
           <button onClick={() => fileInputRef.current?.click()} style={{
             width: "100%", padding: "8px", background: "#1a1a24", border: "1px solid #27272a",
@@ -530,7 +581,7 @@ function App() {
                 {char.portrait} {char.id}
               </div>
               <div style={{ fontSize: 12, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginTop: 2 }}>
-                {convoFiles.length > 0 ? `${convoFiles.length} conversations available` : corsError ? "Upload SVGs manually (see below)" : "Loading conversations..."}
+                {convoFiles.length > 0 ? `${convoFiles.length} conversations` + (charCache?.index ? " · indexed ✓" : "") : corsError ? "Upload SVGs manually (see below)" : "Loading..."}
               </div>
             </div>
 
@@ -542,7 +593,6 @@ function App() {
                   <div style={{ padding: "4px 0 8px", borderBottom: "1px solid #1a1a24", marginBottom: 8, flexShrink: 0 }}>
                     <div style={{ position: "relative" }}>
                       <input
-                        ref={searchInputRef}
                         type="text"
                         placeholder="Search dialog..."
                         value={searchQuery}
@@ -566,13 +616,13 @@ function App() {
                       )}
                     </div>
                     {/* Indexing progress */}
-                    {indexing && (
+                    {isPreloading && globalProgress.char === char?.id && (
                       <div style={{ marginTop: 6, fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace", display: "flex", alignItems: "center", gap: 6 }}>
                         <div style={{ width: 10, height: 10, border: `2px solid ${accentColor}44`, borderTopColor: accentColor, borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
-                        Indexing {indexProgress.done}/{indexProgress.total}...
+                        Indexing {globalProgress.done}/{globalProgress.total}...
                       </div>
                     )}
-                    {debouncedQuery && !indexing && char && searchIndex[char.dir] && (() => {
+                    {debouncedQuery && charCache?.index && (() => {
                       const filtered = getFilteredFiles(convoFiles);
                       return filtered ? (
                         <div style={{ marginTop: 4, fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace" }}>
@@ -593,7 +643,7 @@ function App() {
                     {" "}and use the <strong>📁 Upload SVG</strong> button in the sidebar.
                   </div>
                 )}
-                {loadingFiles && <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12 }}>Loading file list...</div>}
+                {!convoFiles.length && !corsError && <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12 }}>Loading file list...</div>}
 
                 {(() => {
                   const filteredSet = getFilteredFiles(convoFiles);
@@ -615,14 +665,8 @@ function App() {
                         fontFamily: "'Rajdhani', sans-serif", fontSize: 12, fontWeight: active ? 600 : 400,
                       }}>
                         <div>{convoNum ? `Conversation ${convoNum}` : prettifyName(f)}</div>
-                        {/* Show matching dialog snippets under the button */}
                         {matches.map((line, mi) => {
-                          // Highlight the matching part
                           const idx = line.toLowerCase().indexOf(q);
-                          const before = line.slice(0, idx);
-                          const match = line.slice(idx, idx + q.length);
-                          const after = line.slice(idx + q.length);
-                          // Trim to ~60 chars centered on match
                           const start = Math.max(0, idx - 25);
                           const snippet = (start > 0 ? "…" : "") + line.slice(start, start + 60) + (start + 60 < line.length ? "…" : "");
                           const sIdx = snippet.toLowerCase().indexOf(q);
@@ -660,7 +704,7 @@ function App() {
                           </div>
                         );
                       })()}
-                      {isSearching && filteredSet && filteredSet.length === 0 && !indexing && (
+                      {isSearching && filteredSet && filteredSet.length === 0 && (
                         <div style={{ padding: 16, textAlign: "center", color: "#3f3f46", fontSize: 12, fontFamily: "'Rajdhani', monospace" }}>
                           No conversations match "{debouncedQuery}"
                         </div>
