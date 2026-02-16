@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Warframe 1999 — Dialog Route Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.9/babel.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body { background: #08080c; color: #d4d4d8; font-family: 'Segoe UI', system-ui, sans-serif; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.step-card { animation: fadeIn 0.25s ease-out both; }
+button { font-family: inherit; }
+button:hover { filter: brightness(1.15); }
+
+/* Mobile sidebar toggle */
+@media (max-width: 768px) {
+  .sidebar { position: fixed !important; left: -240px; z-index: 100; transition: left 0.25s ease; height: 100vh !important; }
+  .sidebar.open { left: 0; }
+  .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
+  .sidebar-overlay.open { display: block; }
+  .mobile-toggle { display: flex !important; }
+  .convo-panel { min-width: unset !important; width: 100% !important; border-right: none !important; max-height: 200px; }
+  .main-layout { flex-direction: column !important; }
+  .route-panel { padding: 16px 12px 80px !important; }
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+const BASE = "https://kim.browse.wf/flowcharts_svg/en/";
+const CORS_PROXY = "https://corsproxy.io/?";
+
+const CHARACTERS = [
+  { id: "Aoi", dir: "AoiDialogue_rom.dialogue", color: "#60a5fa", portrait: "❄️" },
+  { id: "Arthur", dir: "ArthurDialogue_rom.dialogue", color: "#f87171", portrait: "⚔️" },
+  { id: "Eleanor", dir: "EleanorDialogue_rom.dialogue", color: "#c084fc", portrait: "🌙" },
+  { id: "Flare", dir: "FlareDialogue_rom.dialogue", color: "#fb923c", portrait: "🔥" },
+  { id: "Hex", dir: "HexDialogue_rom.dialogue", color: "#a78bfa", portrait: "🔮" },
+  { id: "Jabir", dir: "JabirDialogue_rom.dialogue", color: "#34d399", portrait: "🧪" },
+  { id: "Kaya", dir: "KayaDialogue_rom.dialogue", color: "#f472b6", portrait: "🎵" },
+  { id: "Lettie", dir: "LettieDialogue_rom.dialogue", color: "#fbbf24", portrait: "✨" },
+  { id: "Loid", dir: "LoidDialogue_rom.dialogue", color: "#94a3b8", portrait: "🤖" },
+  { id: "Lyon", dir: "LyonDialogue_rom.dialogue", color: "#2dd4bf", portrait: "🐺" },
+  { id: "Marie", dir: "MarieDialogue_rom.dialogue", color: "#e879f9", portrait: "💜" },
+  { id: "Minerva", dir: "MinervaDialogue_rom.dialogue", color: "#fca5a5", portrait: "🦅" },
+  { id: "MinervaVelemir", dir: "MinervaVelemirDialogue_rom.dialogue", color: "#fca5a5", portrait: "🦅🐻" },
+  { id: "Quincy", dir: "QuincyDialogue_rom.dialogue", color: "#fb923c", portrait: "🎯" },
+  { id: "Roathe", dir: "RoatheDialogue_rom.dialogue", color: "#6ee7b7", portrait: "🌿" },
+  { id: "Velemir", dir: "VelimirDialogue_rom.dialogue", color: "#a3a3a3", portrait: "🐻" },
+];
+
+/* ─── SVG PARSER ─── */
+function parseSvg(svgText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, "image/svg+xml");
+  const nodes = {};
+  const edges = [];
+
+  doc.querySelectorAll("g.node").forEach((g) => {
+    const title = g.querySelector("title")?.textContent?.trim();
+    if (!title) return;
+    const texts = [];
+    g.querySelectorAll("text").forEach((t) => {
+      const txt = t.textContent?.trim();
+      if (txt) texts.push(txt);
+    });
+    const text = texts.join(" ").trim();
+    const shape = g.querySelector("ellipse") || g.querySelector("polygon");
+    const stroke = shape?.getAttribute("stroke") || "";
+    let type = "dialog";
+    if (stroke === "red") type = "choice";
+    else if (stroke === "orange") type = "special";
+    nodes[title] = { id: title, text, type, stroke };
+  });
+
+  doc.querySelectorAll("g.edge").forEach((g) => {
+    const title = g.querySelector("title")?.textContent?.trim() || "";
+    // Handle both raw -> and HTML-encoded &#45;>
+    const cleaned = title.replace(/&#45;/g, "-").replace(/&#62;/g, ">");
+    const m = cleaned.match(/^(.+?)-\>(.+)$/);
+    if (!m) return;
+    const from = m[1];
+    const to = m[2];
+    const path = g.querySelector("path");
+    const edgeStroke = path?.getAttribute("stroke") || "black";
+    let label = null;
+    g.querySelectorAll("text").forEach((t) => {
+      const val = t.textContent?.trim();
+      if (val === "true" || val === "false") label = val;
+    });
+    edges.push({ from, to, stroke: edgeStroke, label });
+  });
+
+  return { nodes, edges };
+}
+
+/* ─── BEST PATH FINDER (DFS) ─── */
+function extractChem(text) {
+  const m = text?.match(/\+(\d+)\s*Chemistry/i);
+  return m ? parseInt(m[1]) : 0;
+}
+
+function findBestPath(nodes, edges, startId) {
+  const adj = {};
+  for (const e of edges) {
+    if (!adj[e.from]) adj[e.from] = [];
+    adj[e.from].push(e);
+  }
+
+  let bestPath = null;
+  let bestChem = -1;
+  let iterations = 0;
+  const MAX_ITER = 50000;
+
+  function dfs(nodeId, path, chem, visited) {
+    if (iterations++ > MAX_ITER) return;
+    const node = nodes[nodeId];
+    if (!node) return;
+
+    // Prevent infinite loops but allow "Chat ends" revisits
+    if (visited.has(nodeId) && !nodeId.includes("Chat ends")) return;
+
+    const nodeChem = extractChem(node.text);
+    const totalChem = chem + nodeChem;
+    const newPath = [...path, { nodeId, text: node.text, type: node.type, chem: nodeChem }];
+
+    const neighbors = adj[nodeId] || [];
+
+    // Terminal conditions
+    if (
+      node.text?.includes("Chat ends") ||
+      node.text?.match(/\[End\.?\]/) ||
+      neighbors.length === 0
+    ) {
+      if (totalChem > bestChem) {
+        bestChem = totalChem;
+        bestPath = newPath;
+      }
+      return;
+    }
+
+    const newVisited = new Set(visited);
+    newVisited.add(nodeId);
+
+    for (const e of neighbors) {
+      dfs(e.to, newPath, totalChem, newVisited);
+    }
+  }
+
+  dfs(startId, [], 0, new Set());
+  return { path: bestPath || [], totalChem: Math.max(0, bestChem) };
+}
+
+/* ─── ANALYZE A FLOWCHART SVG ─── */
+function analyzeFlowchart(svgText) {
+  const { nodes, edges } = parseSvg(svgText);
+  const startNode = Object.keys(nodes).find((k) => k.includes("begins"));
+  if (!startNode) return { steps: [], totalChem: 0 };
+
+  const result = findBestPath(nodes, edges, startNode);
+
+  // Build clean steps from the raw path
+  const steps = [];
+  for (const node of result.path) {
+    if (
+      node.text?.includes("Check boolean") ||
+      node.text?.match(/^Boolean\s/) ||
+      node.text?.includes("begins")
+    ) continue;
+    if (node.text === "Chat ends.") continue;
+
+    if (node.type === "choice") {
+      steps.push({ type: "choice", text: node.text, chem: node.chem });
+    } else if (node.type === "special" && node.chem > 0) {
+      steps.push({ type: "chem", text: node.text, chem: node.chem });
+    } else if (node.type === "dialog") {
+      steps.push({ type: "dialog", text: node.text, chem: node.chem });
+    }
+  }
+
+  // Gather all alternatives at choice points
+  const parentOfChoice = {};
+  for (const e of edges) {
+    const toNode = nodes[e.to];
+    if (toNode?.type === "choice") {
+      if (!parentOfChoice[e.from]) parentOfChoice[e.from] = [];
+      parentOfChoice[e.from].push(toNode.text);
+    }
+  }
+  // Also gather dialog siblings that are player-selectable
+  for (const e of edges) {
+    const fromNode = nodes[e.from];
+    if (!fromNode) continue;
+    const siblings = edges.filter(ee => ee.from === e.from);
+    if (siblings.length > 1 && fromNode.type !== "special") {
+      siblings.forEach(s => {
+        const sn = nodes[s.to];
+        if (sn?.type === "choice") {
+          if (!parentOfChoice[e.from]) parentOfChoice[e.from] = [];
+          if (!parentOfChoice[e.from].includes(sn.text)) parentOfChoice[e.from].push(sn.text);
+        }
+      });
+    }
+  }
+
+  // Attach alternatives to choice steps
+  const bestChoiceTexts = new Set(steps.filter(s => s.type === "choice").map(s => s.text));
+  const enrichedSteps = steps.map((step, i) => {
+    if (step.type !== "dialog") return step;
+    // Find the next choice after this dialog
+    const nextChoice = steps[i + 1];
+    if (nextChoice?.type !== "choice") return step;
+    // Find parent node
+    const parentId = result.path.find(p => p.text === step.text)?.nodeId;
+    if (!parentId) return step;
+    const alts = (parentOfChoice[parentId] || []).filter(t => !bestChoiceTexts.has(t));
+    return { ...step, alternatives: alts };
+  });
+
+  return { steps: enrichedSteps, totalChem: result.totalChem };
+}
+
+/* ─── UTILITIES ─── */
+function prettifyName(filename) {
+  return filename.replace(/\.svg$/, "").replace(/([A-Z])/g, " $1").replace(/(\d+)/g, " $1 ").replace(/\s+/g, " ").trim();
+}
+
+function categorizeSvgs(files) {
+  const ranks = {};
+  const other = [];
+  for (const f of files) {
+    const m = f.match(/Rank(\d+)Convo(\d+)/);
+    if (m) {
+      const rank = parseInt(m[1]);
+      if (!ranks[rank]) ranks[rank] = [];
+      ranks[rank].push(f);
+    } else {
+      other.push(f);
+    }
+  }
+  return { ranks, other };
+}
+
+/* ─── MAIN APP ─── */
+function App() {
+  const [charIdx, setCharIdx] = useState(null);
+  const [convoFiles, setConvoFiles] = useState([]);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [error, setError] = useState(null);
+  const [corsError, setCorsError] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const char = charIdx !== null ? CHARACTERS[charIdx] : null;
+  const accentColor = char?.color || "#71717a";
+
+  // Fetch conversation list for a character
+  const fetchFileList = useCallback(async (character) => {
+    setLoadingFiles(true);
+    setConvoFiles([]);
+    setError(null);
+    setCorsError(false);
+    try {
+      const url = CORS_PROXY + encodeURIComponent(BASE + character.dir + "/");
+      const res = await fetch(url);
+      const html = await res.text();
+      const matches = [...html.matchAll(/href="([^"]*\.svg)"/gi)];
+      const files = matches.map((m) => m[1]).sort();
+      if (files.length === 0) throw new Error("No files found");
+      setConvoFiles(files);
+    } catch {
+      setCorsError(true);
+      setConvoFiles([]);
+    }
+    setLoadingFiles(false);
+  }, []);
+
+  // Fetch and analyze one SVG
+  const fetchAndAnalyze = useCallback(async (filename) => {
+    if (!char) return;
+    setLoading(true);
+    setAnalysis(null);
+    setError(null);
+    try {
+      const url = CORS_PROXY + encodeURIComponent(BASE + char.dir + "/" + filename);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const svgText = await res.text();
+      const result = analyzeFlowchart(svgText);
+      setAnalysis(result);
+    } catch (e) {
+      setError("Failed to load: " + e.message);
+      setCorsError(true);
+    }
+    setLoading(false);
+  }, [char]);
+
+  // Manual upload handler
+  const handleFileUpload = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result;
+      if (text) {
+        setSelectedFile(file.name);
+        setLoading(true);
+        setTimeout(() => {
+          try {
+            const result = analyzeFlowchart(text);
+            setAnalysis(result);
+            setError(null);
+          } catch (err) {
+            setError("Parse error: " + err.message);
+          }
+          setLoading(false);
+        }, 50);
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
+  useEffect(() => {
+    if (char) fetchFileList(char);
+  }, [char, fetchFileList]);
+
+  const { ranks, other } = categorizeSvgs(convoFiles);
+
+  return (
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+
+      {/* Mobile overlay */}
+      <div className={`sidebar-overlay ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
+
+      {/* Sidebar */}
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} style={{
+        width: 220, minWidth: 220, borderRight: "1px solid #1a1a24", background: "#0c0c14",
+        display: "flex", flexDirection: "column", overflow: "hidden",
+      }}>
+        <div style={{ padding: "16px 14px 12px", borderBottom: "1px solid #1a1a24" }}>
+          <div style={{ fontSize: 9, letterSpacing: 4, color: "#52525b", fontFamily: "'Rajdhani', monospace", textTransform: "uppercase" }}>Warframe 1999</div>
+          <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "'Chakra Petch', monospace", color: "#e4e4e7", letterSpacing: 1, marginTop: 2 }}>ROUTE GUIDE</div>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 6px" }}>
+          {CHARACTERS.map((c, i) => {
+            const active = charIdx === i;
+            return (
+              <button key={c.id} onClick={() => {
+                setCharIdx(i); setSelectedFile(null); setAnalysis(null); setError(null); setSidebarOpen(false);
+              }} style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                padding: "8px 10px", marginBottom: 2, borderRadius: 6, border: "none",
+                background: active ? `${c.color}15` : "transparent",
+                color: active ? c.color : "#71717a", cursor: "pointer",
+                fontFamily: "'Rajdhani', sans-serif", fontSize: 13, fontWeight: active ? 600 : 400,
+                textAlign: "left", transition: "all 0.15s",
+                borderLeft: active ? `2px solid ${c.color}` : "2px solid transparent",
+              }}>
+                <span style={{ fontSize: 14 }}>{c.portrait}</span>
+                {c.id}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ padding: "10px", borderTop: "1px solid #1a1a24" }}>
+          <input ref={fileInputRef} type="file" accept=".svg" onChange={handleFileUpload} style={{ display: "none" }} />
+          <button onClick={() => fileInputRef.current?.click()} style={{
+            width: "100%", padding: "8px", background: "#1a1a24", border: "1px solid #27272a",
+            borderRadius: 6, color: "#71717a", cursor: "pointer", fontSize: 11, fontFamily: "'Rajdhani', monospace", letterSpacing: 1,
+          }}>
+            📁 UPLOAD SVG
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+
+        {/* Mobile hamburger */}
+        <button className="mobile-toggle" onClick={() => setSidebarOpen(true)} style={{
+          display: "none", position: "fixed", top: 10, left: 10, zIndex: 98,
+          width: 36, height: 36, borderRadius: 8, border: "1px solid #27272a",
+          background: "#0c0c14", color: "#71717a", cursor: "pointer",
+          alignItems: "center", justifyContent: "center", fontSize: 18,
+        }}>☰</button>
+
+        {!char ? (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, opacity: 0.4 }}>
+            <div style={{ fontSize: 48 }}>⚗️</div>
+            <div style={{ fontSize: 14, fontFamily: "'Rajdhani', monospace", letterSpacing: 2 }}>SELECT A CHARACTER</div>
+          </div>
+        ) : (
+          <>
+            {/* Character header */}
+            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #1a1a24", background: `linear-gradient(135deg, ${accentColor}08, transparent)` }}>
+              <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Chakra Petch', monospace", color: accentColor }}>
+                {char.portrait} {char.id}
+              </div>
+              <div style={{ fontSize: 12, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginTop: 2 }}>
+                {convoFiles.length > 0 ? `${convoFiles.length} conversations available` : corsError ? "Upload SVGs manually (see below)" : "Loading conversations..."}
+              </div>
+            </div>
+
+            <div className="main-layout" style={{ display: "flex", flex: 1, minHeight: 0 }}>
+              {/* Conversation list */}
+              <div className="convo-panel" style={{ width: 240, minWidth: 240, borderRight: "1px solid #1a1a24", overflowY: "auto", padding: "8px" }}>
+                {corsError && convoFiles.length === 0 && (
+                  <div style={{ padding: "12px", background: "#1c1917", border: "1px solid #44403c", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#a8a29e", lineHeight: 1.6 }}>
+                    <strong style={{ color: "#fbbf24" }}>⚠️ CORS Blocked</strong><br/>
+                    Can't auto-fetch from kim.browse.wf.<br/><br/>
+                    <strong>To fix:</strong> Download SVGs from{" "}
+                    <a href={BASE + char.dir + "/"} target="_blank" rel="noreferrer" style={{ color: accentColor }}>kim.browse.wf</a>
+                    {" "}and use the <strong>📁 Upload SVG</strong> button in the sidebar.
+                  </div>
+                )}
+                {loadingFiles && <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12 }}>Loading file list...</div>}
+
+                {Object.entries(ranks).sort(([a],[b]) => a - b).map(([rank, files]) => (
+                  <div key={rank} style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 10, letterSpacing: 3, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 8px", textTransform: "uppercase" }}>Rank {rank}</div>
+                    {files.sort().map((f) => {
+                      const active = selectedFile === f;
+                      const convoNum = f.match(/Convo(\d+)/)?.[1];
+                      return (
+                        <button key={f} onClick={() => { setSelectedFile(f); fetchAndAnalyze(f); }} style={{
+                          display: "block", width: "100%", padding: "7px 10px", marginBottom: 1,
+                          borderRadius: 5, border: "none", textAlign: "left", cursor: "pointer",
+                          background: active ? `${accentColor}18` : "transparent",
+                          color: active ? accentColor : "#71717a",
+                          fontFamily: "'Rajdhani', sans-serif", fontSize: 12, fontWeight: active ? 600 : 400,
+                        }}>
+                          Conversation {convoNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+                {other.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 10, letterSpacing: 3, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 8px" }}>OTHER</div>
+                    {other.sort().map((f) => {
+                      const active = selectedFile === f;
+                      return (
+                        <button key={f} onClick={() => { setSelectedFile(f); fetchAndAnalyze(f); }} style={{
+                          display: "block", width: "100%", padding: "7px 10px", marginBottom: 1,
+                          borderRadius: 5, border: "none", textAlign: "left", cursor: "pointer",
+                          background: active ? `${accentColor}18` : "transparent",
+                          color: active ? accentColor : "#71717a",
+                          fontFamily: "'Rajdhani', sans-serif", fontSize: 12, fontWeight: active ? 600 : 400,
+                        }}>
+                          {prettifyName(f)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Route display */}
+              <div className="route-panel" style={{ flex: 1, overflowY: "auto", padding: "20px 24px 80px" }}>
+                {loading && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 60, flexDirection: "column", gap: 12 }}>
+                    <div style={{ width: 24, height: 24, border: `2px solid ${accentColor}44`, borderTopColor: accentColor, borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+                    <div style={{ fontSize: 12, color: "#52525b", fontFamily: "'Rajdhani', monospace" }}>Parsing flowchart...</div>
+                  </div>
+                )}
+
+                {error && !loading && (
+                  <div style={{ padding: "16px", background: "#1c1917", border: "1px solid #44403c", borderRadius: 8, color: "#fbbf24", fontSize: 13, lineHeight: 1.6 }}>
+                    ⚠️ {error}
+                  </div>
+                )}
+
+                {!loading && !analysis && !error && (
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8, opacity: 0.3, paddingTop: 80 }}>
+                    <div style={{ fontSize: 32 }}>💬</div>
+                    <div style={{ fontSize: 12, fontFamily: "'Rajdhani', monospace", letterSpacing: 2 }}>
+                      {corsError ? "UPLOAD AN SVG TO START" : "PICK A CONVERSATION"}
+                    </div>
+                  </div>
+                )}
+
+                {analysis && !loading && (
+                  <>
+                    {/* Route header */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Chakra Petch', monospace", color: "#e4e4e7" }}>
+                          {prettifyName(selectedFile || "")}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginTop: 2 }}>
+                          {analysis.steps?.length || 0} steps · optimal route
+                        </div>
+                      </div>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        background: analysis.totalChem > 0 ? "linear-gradient(135deg, #16a34a22, #16a34a11)" : "#1a1a2411",
+                        border: `1px solid ${analysis.totalChem > 0 ? "#16a34a44" : "#27272a"}`,
+                        padding: "8px 14px", borderRadius: 8,
+                      }}>
+                        <span style={{ fontSize: 10, color: analysis.totalChem > 0 ? "#86efac" : "#52525b", fontFamily: "'Rajdhani', monospace", letterSpacing: 1 }}>MAX</span>
+                        <span style={{ fontSize: 22, fontWeight: 700, color: analysis.totalChem > 0 ? "#4ade80" : "#52525b", fontFamily: "'Chakra Petch', monospace" }}>
+                          +{analysis.totalChem}
+                        </span>
+                        <span>⚗️</span>
+                      </div>
+                    </div>
+
+                    {/* Steps timeline */}
+                    {analysis.steps?.map((step, i) => {
+                      const isChoice = step.type === "choice";
+                      const isChem = step.type === "chem";
+
+                      if (isChem) {
+                        return (
+                          <div key={i} className="step-card" style={{ animationDelay: `${i * 0.03}s`, display: "flex", alignItems: "center", gap: 8, padding: "8px 0 8px 32px", position: "relative" }}>
+                            {i < analysis.steps.length - 1 && <div style={{ position: "absolute", left: 14, top: 0, bottom: 0, width: 1, background: `${accentColor}22` }} />}
+                            <div style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, borderRadius: "50%", background: "#16a34a44", border: "2px solid #22c55e" }} />
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              background: "linear-gradient(135deg, #16a34a, #22c55e)",
+                              color: "#fff", fontWeight: 700, fontSize: 12,
+                              padding: "4px 12px", borderRadius: 99, fontFamily: "'Chakra Petch', monospace",
+                            }}>
+                              +{step.chem} Chemistry ⚗️
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={i} className="step-card" style={{ animationDelay: `${i * 0.03}s`, position: "relative", paddingLeft: 32, marginBottom: 6 }}>
+                          {i < analysis.steps.length - 1 && <div style={{ position: "absolute", left: 14, top: 24, bottom: 0, width: 1, background: `${accentColor}22` }} />}
+                          <div style={{
+                            position: "absolute", left: 8, top: 14, width: 13, height: 13, borderRadius: "50%",
+                            background: isChoice ? `${accentColor}33` : "#18181b",
+                            border: `2px solid ${isChoice ? accentColor : "#3f3f46"}`,
+                          }} />
+                          <div style={{
+                            background: isChoice ? `${accentColor}0a` : "rgba(255,255,255,0.015)",
+                            border: `1px solid ${isChoice ? `${accentColor}30` : "rgba(255,255,255,0.04)"}`,
+                            borderRadius: 8, padding: "10px 14px",
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                              {isChoice ? (
+                                <span style={{
+                                  background: accentColor, color: "#0a0a0f", fontSize: 9, fontWeight: 700,
+                                  padding: "1px 6px", borderRadius: 3, letterSpacing: 1, fontFamily: "'Rajdhani', monospace",
+                                }}>PICK THIS</span>
+                              ) : (
+                                <span style={{ fontSize: 9, letterSpacing: 2, color: "#3f3f46", fontFamily: "'Rajdhani', monospace" }}>
+                                  {char.id.toUpperCase()}
+                                </span>
+                              )}
+                              {step.chem > 0 && (
+                                <span style={{
+                                  display: "inline-flex", alignItems: "center", gap: 3,
+                                  background: "linear-gradient(135deg, #16a34a, #22c55e)",
+                                  color: "#fff", fontWeight: 700, fontSize: 10,
+                                  padding: "1px 7px", borderRadius: 99,
+                                }}>+{step.chem} ⚗️</span>
+                              )}
+                            </div>
+                            <div style={{
+                              fontSize: 13, lineHeight: 1.6, fontFamily: "'Rajdhani', sans-serif", fontWeight: 500,
+                              color: isChoice ? "#e4e4e7" : "#a1a1aa",
+                              borderLeft: isChoice ? "none" : `2px solid ${accentColor}22`,
+                              paddingLeft: isChoice ? 0 : 10,
+                            }}>
+                              "{step.text}"
+                            </div>
+
+                            {/* Show alternatives that are NOT on the best path */}
+                            {step.alternatives?.length > 0 && (
+                              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                                <div style={{ fontSize: 9, letterSpacing: 2, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", marginBottom: 4 }}>AVOID</div>
+                                {step.alternatives.map((alt, ai) => (
+                                  <div key={ai} style={{ padding: "3px 8px", fontSize: 11, color: "#3f3f46", borderLeft: "2px solid #1a1a24", marginBottom: 3, fontFamily: "'Rajdhani', sans-serif" }}>
+                                    <span style={{ textDecoration: "line-through", opacity: 0.7 }}>"{alt}"</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Total footer */}
+                    <div style={{
+                      textAlign: "center", padding: "20px 16px", marginTop: 16,
+                      background: `linear-gradient(135deg, ${accentColor}08, transparent)`,
+                      border: `1px solid ${accentColor}22`, borderRadius: 10,
+                    }}>
+                      <div style={{ fontSize: 10, letterSpacing: 3, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginBottom: 4 }}>TOTAL CHEMISTRY</div>
+                      <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'Chakra Petch', monospace", color: analysis.totalChem > 0 ? "#4ade80" : "#52525b" }}>
+                        +{analysis.totalChem} ⚗️
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
