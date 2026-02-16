@@ -268,33 +268,35 @@ function App() {
   const fileInputRef = useRef(null);
   const debounceRef = useRef(null);
 
-  // Global cache: { charDir: { files: [...], index: { file: [lines] }, indexLower: { file: [lines] } } }
+  // Cache lives in a ref so the preloader never has stale closures
   const [cache, setCache] = useState(() => {
     try {
-      const saved = localStorage.getItem("wf1999_cache_v2");
+      const saved = localStorage.getItem("wf1999_cache_v3");
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
-  const [globalProgress, setGlobalProgress] = useState({ char: "", done: 0, total: 0, charsLeft: 0 });
+  const cacheRef = useRef(cache);
+  useEffect(() => { cacheRef.current = cache; }, [cache]);
+
+  const [globalProgress, setGlobalProgress] = useState({ char: "", done: 0, total: 0 });
   const [isPreloading, setIsPreloading] = useState(false);
-  const preloadAbortRef = useRef(null);
 
   const char = charIdx !== null ? CHARACTERS[charIdx] : null;
   const accentColor = char?.color || "#71717a";
   const charCache = char ? cache[char.dir] : null;
   const convoFiles = charCache?.files || [];
 
-  // Save cache to localStorage whenever it changes
+  // Persist cache to localStorage (debounced to avoid thrashing)
+  const saveTimerRef = useRef(null);
   useEffect(() => {
-    try {
-      localStorage.setItem("wf1999_cache_v2", JSON.stringify(cache));
-    } catch {
-      // localStorage full — silently continue with in-memory cache
-    }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      try { localStorage.setItem("wf1999_cache_v3", JSON.stringify(cache)); } catch {}
+    }, 1000);
   }, [cache]);
 
-  // Extract all dialog text from an SVG string
-  const extractDialogText = useCallback((svgText) => {
+  // Extract dialog text from SVG
+  const extractDialogText = (svgText) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgText, "image/svg+xml");
     const lines = [];
@@ -311,94 +313,105 @@ function App() {
       if (text && !text.match(/^(Check boolean|Boolean )/)) lines.push(text);
     });
     return lines;
-  }, []);
+  };
 
-  // Fetch file list for a single character
-  const fetchCharFiles = useCallback(async (character) => {
+  // Fetch file list for one character
+  const fetchCharFiles = async (character) => {
     const url = CORS_PROXY + encodeURIComponent(BASE + character.dir + "/");
     const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const html = await res.text();
     const matches = [...html.matchAll(/href="([^"]*\.svg)"/gi)];
     return matches.map((m) => m[1]).sort();
-  }, []);
+  };
 
-  // Index one character: fetch file list + all SVG dialog text
-  const indexCharacter = useCallback(async (character, abort, onProgress) => {
-    let files;
-    // Use cached file list if available
-    if (cache[character.dir]?.files?.length > 0) {
-      files = cache[character.dir].files;
-    } else {
-      files = await fetchCharFiles(character);
-      if (files.length === 0) return null;
-    }
-    // Skip if already fully indexed
-    if (cache[character.dir]?.index && Object.keys(cache[character.dir].index).length >= files.length) {
-      return cache[character.dir];
-    }
-    const idx = {};
-    const idxLower = {};
-    let done = 0;
-    const BATCH = 12;
-    for (let i = 0; i < files.length; i += BATCH) {
-      if (abort.cancelled) return null;
-      const batch = files.slice(i, i + BATCH);
-      const results = await Promise.allSettled(
-        batch.map(async (f) => {
-          const url = CORS_PROXY + encodeURIComponent(BASE + character.dir + "/" + f);
-          const res = await fetch(url);
-          return { file: f, text: await res.text() };
-        })
-      );
-      for (const r of results) {
-        if (r.status === "fulfilled") {
-          const lines = extractDialogText(r.value.text);
-          idx[r.value.file] = lines;
-          idxLower[r.value.file] = lines.map(l => l.toLowerCase());
+  // Preload ALL characters on mount — uses refs to avoid stale closures
+  useEffect(() => {
+    let cancelled = false;
+
+    const isCharCached = (dir) => {
+      const cc = cacheRef.current[dir];
+      return cc?.files?.length > 0 && cc?.index && Object.keys(cc.index).length >= cc.files.length;
+    };
+
+    const indexOneCharacter = async (character) => {
+      if (isCharCached(character.dir)) return;
+
+      // 1. Get file list
+      let files;
+      const existing = cacheRef.current[character.dir];
+      if (existing?.files?.length > 0) {
+        files = existing.files;
+      } else {
+        files = await fetchCharFiles(character);
+        if (files.length === 0) return;
+        // Save file list immediately so UI can show it
+        setCache(prev => {
+          const next = { ...prev, [character.dir]: { ...prev[character.dir], files } };
+          cacheRef.current = next;
+          return next;
+        });
+      }
+
+      // 2. Fetch all SVGs in parallel batches
+      const idx = {};
+      const idxLower = {};
+      let done = 0;
+      const BATCH = 12;
+
+      for (let i = 0; i < files.length; i += BATCH) {
+        if (cancelled) return;
+        const batch = files.slice(i, i + BATCH);
+        const results = await Promise.allSettled(
+          batch.map(async (f) => {
+            const url = CORS_PROXY + encodeURIComponent(BASE + character.dir + "/" + f);
+            const r = await fetch(url);
+            return { file: f, text: await r.text() };
+          })
+        );
+        for (const r of results) {
+          if (r.status === "fulfilled") {
+            const lines = extractDialogText(r.value.text);
+            idx[r.value.file] = lines;
+            idxLower[r.value.file] = lines.map(l => l.toLowerCase());
+          }
+        }
+        done += batch.length;
+        if (!cancelled) {
+          setGlobalProgress({ char: character.id, done: Math.min(done, files.length), total: files.length });
         }
       }
-      done += batch.length;
-      if (onProgress) onProgress(Math.min(done, files.length), files.length);
-    }
-    return { files, index: idx, indexLower: idxLower };
-  }, [cache, fetchCharFiles, extractDialogText]);
 
-  // Preload ALL characters on page load
-  useEffect(() => {
-    const abort = { cancelled: false };
-    preloadAbortRef.current = abort;
-    const uncachedChars = CHARACTERS.filter(c => {
-      const cc = cache[c.dir];
-      return !cc?.index || !cc?.files?.length;
-    });
-    if (uncachedChars.length === 0) return;
+      if (!cancelled) {
+        setCache(prev => {
+          const next = { ...prev, [character.dir]: { files, index: idx, indexLower: idxLower } };
+          cacheRef.current = next;
+          return next;
+        });
+      }
+    };
+
+    // Check if anything needs caching
+    const needsCaching = CHARACTERS.some(c => !isCharCached(c.dir));
+    if (!needsCaching) return;
+
     setIsPreloading(true);
-    let charsLeft = uncachedChars.length;
     (async () => {
       for (const character of CHARACTERS) {
-        if (abort.cancelled) break;
-        // Skip already fully cached
-        const cc = cache[character.dir];
-        if (cc?.index && cc?.files?.length && Object.keys(cc.index).length >= cc.files.length) {
-          continue;
-        }
-        setGlobalProgress({ char: character.id, done: 0, total: 0, charsLeft });
+        if (cancelled) break;
+        if (isCharCached(character.dir)) continue;
+        setGlobalProgress({ char: character.id, done: 0, total: 0 });
         try {
-          const result = await indexCharacter(character, abort, (done, total) => {
-            if (!abort.cancelled) setGlobalProgress({ char: character.id, done, total, charsLeft });
-          });
-          if (result && !abort.cancelled) {
-            setCache(prev => ({ ...prev, [character.dir]: result }));
-            charsLeft--;
-          }
+          await indexOneCharacter(character);
         } catch {
-          // Skip failed characters, continue with others
+          // Skip failed, continue with next
         }
       }
-      if (!abort.cancelled) setIsPreloading(false);
+      if (!cancelled) setIsPreloading(false);
     })();
-    return () => { abort.cancelled = true; };
-  }, []); // only on mount
+
+    return () => { cancelled = true; };
+  }, []); // runs once on mount
 
   // Filtered file list based on search
   const getFilteredFiles = useCallback((files) => {
@@ -413,7 +426,7 @@ function App() {
     });
   }, [debouncedQuery, charCache]);
 
-  // Get matching lines for a file (for search result preview)
+  // Get matching lines for a file
   const getMatchingLines = useCallback((filename) => {
     if (!debouncedQuery.trim() || !charCache) return [];
     const q = debouncedQuery.toLowerCase();
@@ -426,7 +439,7 @@ function App() {
     return matches;
   }, [debouncedQuery, charCache]);
 
-  // Fetch and analyze one SVG
+  // Fetch and analyze one SVG for route display
   const fetchAndAnalyze = useCallback(async (filename) => {
     if (!char) return;
     setLoading(true);
@@ -441,7 +454,6 @@ function App() {
       setAnalysis(result);
     } catch (e) {
       setError("Failed to load: " + e.message);
-      setCorsError(true);
     }
     setLoading(false);
   }, [char]);
@@ -458,8 +470,7 @@ function App() {
         setLoading(true);
         setTimeout(() => {
           try {
-            const result = analyzeFlowchart(text);
-            setAnalysis(result);
+            setAnalysis(analyzeFlowchart(text));
             setError(null);
           } catch (err) {
             setError("Parse error: " + err.message);
@@ -471,13 +482,17 @@ function App() {
     reader.readAsText(file);
   }, []);
 
-  // If selected character has no cached files yet, try fetching just the file list
+  // If selected character has no cached files, fetch just the file list
   useEffect(() => {
     if (char && !charCache?.files?.length) {
       setCorsError(false);
       fetchCharFiles(char).then(files => {
         if (files.length > 0) {
-          setCache(prev => ({ ...prev, [char.dir]: { ...prev[char.dir], files } }));
+          setCache(prev => {
+            const next = { ...prev, [char.dir]: { ...prev[char.dir], files } };
+            cacheRef.current = next;
+            return next;
+          });
         }
       }).catch(() => setCorsError(true));
     }
@@ -542,7 +557,7 @@ function App() {
           {!isPreloading && Object.keys(cache).length > 0 && (
             <div style={{ marginBottom: 8, padding: "6px 8px", background: "#052e1611", border: "1px solid #16a34a33", borderRadius: 6, fontSize: 10, color: "#4ade80", fontFamily: "'Rajdhani', monospace", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>✓ {Object.keys(cache).length}/{CHARACTERS.length} cached</span>
-              <button onClick={() => { localStorage.removeItem("wf1999_cache_v2"); setCache({}); location.reload(); }} style={{
+              <button onClick={() => { localStorage.removeItem("wf1999_cache_v3"); setCache({}); cacheRef.current = {}; location.reload(); }} style={{
                 background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 9, fontFamily: "'Rajdhani', monospace", textDecoration: "underline",
               }}>Clear</button>
             </div>
