@@ -482,21 +482,22 @@ function App() {
     reader.readAsText(file);
   }, []);
 
-  // If selected character has no cached files, fetch just the file list
+  // If selected character has no cached files and preloader isn't running, fetch file list
   useEffect(() => {
-    if (char && !charCache?.files?.length) {
-      setCorsError(false);
-      fetchCharFiles(char).then(files => {
-        if (files.length > 0) {
-          setCache(prev => {
-            const next = { ...prev, [char.dir]: { ...prev[char.dir], files } };
-            cacheRef.current = next;
-            return next;
-          });
-        }
-      }).catch(() => setCorsError(true));
-    }
-  }, [char]);
+    if (!char) return;
+    if (charCache?.files?.length) return; // already have files
+    if (isPreloading) return; // preloader will handle it, don't compete
+    setCorsError(false);
+    fetchCharFiles(char).then(files => {
+      if (files.length > 0) {
+        setCache(prev => {
+          const next = { ...prev, [char.dir]: { ...prev[char.dir], files } };
+          cacheRef.current = next;
+          return next;
+        });
+      }
+    }).catch(() => setCorsError(true));
+  }, [char, isPreloading]);
 
   // Debounce search input (150ms)
   useEffect(() => {
@@ -527,7 +528,7 @@ function App() {
             const active = charIdx === i;
             return (
               <button key={c.id} onClick={() => {
-                setCharIdx(i); setSelectedFile(null); setAnalysis(null); setError(null); setSidebarOpen(false);
+                setCharIdx(i); setSelectedFile(null); setAnalysis(null); setError(null); setCorsError(false); setSidebarOpen(false);
                 setSearchQuery(""); setDebouncedQuery("");
               }} style={{
                 display: "flex", alignItems: "center", gap: 8, width: "100%",
@@ -596,7 +597,7 @@ function App() {
                 {char.portrait} {char.id}
               </div>
               <div style={{ fontSize: 12, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginTop: 2 }}>
-                {convoFiles.length > 0 ? `${convoFiles.length} conversations` + (charCache?.index ? " · indexed ✓" : "") : corsError ? "Upload SVGs manually (see below)" : "Loading..."}
+                {convoFiles.length > 0 ? `${convoFiles.length} conversations` + (charCache?.index ? " · indexed ✓" : "") : corsError && !isPreloading ? "Upload SVGs manually (see below)" : isPreloading ? "Indexing in background..." : "Loading..."}
               </div>
             </div>
 
@@ -649,7 +650,7 @@ function App() {
                 )}
 
                 <div style={{ flex: 1, overflowY: "auto" }}>
-                {corsError && convoFiles.length === 0 && (
+                {corsError && !isPreloading && convoFiles.length === 0 && (
                   <div style={{ padding: "12px", background: "#1c1917", border: "1px solid #44403c", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#a8a29e", lineHeight: 1.6 }}>
                     <strong style={{ color: "#fbbf24" }}>⚠️ CORS Blocked</strong><br/>
                     Can't auto-fetch from kim.browse.wf.<br/><br/>
@@ -658,7 +659,13 @@ function App() {
                     {" "}and use the <strong>📁 Upload SVG</strong> button in the sidebar.
                   </div>
                 )}
-                {!convoFiles.length && !corsError && <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12 }}>Loading file list...</div>}
+                {!convoFiles.length && !corsError && !isPreloading && <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12 }}>Loading file list...</div>}
+                {!convoFiles.length && isPreloading && (
+                  <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12, fontFamily: "'Rajdhani', monospace", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 16, height: 16, border: `2px solid ${accentColor}44`, borderTopColor: accentColor, borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+                    Waiting for background indexer...
+                  </div>
+                )}
 
                 {(() => {
                   const filteredSet = getFilteredFiles(convoFiles);
