@@ -315,9 +315,6 @@ function App() {
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const debounceRef = useRef(null);
   const [globalSearch, setGlobalSearch] = useState("");
   const [globalSearchDebounced, setGlobalSearchDebounced] = useState("");
   const globalDebounceRef = useRef(null);
@@ -472,31 +469,6 @@ function App() {
     return () => { cancelled = true; };
   }, []); // runs once on mount
 
-  // Filtered file list based on search
-  const getFilteredFiles = useCallback((files) => {
-    if (!debouncedQuery.trim()) return null;
-    const q = normalizeSearch(debouncedQuery);
-    const lowerIndex = charCache?.indexLower;
-    if (!lowerIndex) return null;
-    return files.filter((f) => {
-      if (prettifyName(f).toLowerCase().includes(q)) return true;
-      const lines = lowerIndex[f] || [];
-      return lines.some((line) => line.includes(q));
-    });
-  }, [debouncedQuery, charCache]);
-
-  // Get matching lines for a file
-  const getMatchingLines = useCallback((filename) => {
-    if (!debouncedQuery.trim() || !charCache) return [];
-    const q = normalizeSearch(debouncedQuery);
-    const lines = charCache.index?.[filename] || [];
-    const lowerLines = charCache.indexLower?.[filename] || [];
-    const matches = [];
-    for (let i = 0; i < lowerLines.length && matches.length < 2; i++) {
-      if (lowerLines[i].includes(q)) matches.push(lines[i]);
-    }
-    return matches;
-  }, [debouncedQuery, charCache]);
 
   // Fetch and analyze one SVG for route display
   const fetchAndAnalyze = useCallback(async (filename) => {
@@ -541,13 +513,6 @@ function App() {
       }
     }).catch(() => {});
   }, [char, isPreloading]);
-
-  // Debounce search input (150ms)
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 150);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [searchQuery]);
 
   // Debounce global search (200ms)
   useEffect(() => {
@@ -671,7 +636,6 @@ function App() {
             return (
               <button key={c.id} onClick={() => {
                 setCharIdx(i); setSelectedFile(null); setAnalysis(null); setError(null); setSidebarOpen(false);
-                setSearchQuery(""); setDebouncedQuery("");
                 currentSvgRef.current = null;
               }} style={{
                 display: "flex", alignItems: "center", gap: 8, width: "100%",
@@ -749,7 +713,6 @@ function App() {
                       const idx = CHARACTERS.findIndex(c => c.id === character.id);
                       setCharIdx(idx);
                       setSelectedFile(file);
-                      setSearchQuery(""); setDebouncedQuery("");
                       setGlobalSearch(""); setGlobalSearchDebounced("");
                       fetchAndAnalyzeFor(character.dir, file);
                     }} style={{
@@ -802,48 +765,13 @@ function App() {
             <div className="main-layout" style={{ display: "flex", flex: 1, minHeight: 0 }}>
               {/* Conversation list */}
               <div className="convo-panel" style={{ width: 240, minWidth: 240, borderRight: "1px solid #1a1a24", overflowY: "auto", padding: "8px", display: "flex", flexDirection: "column" }}>
-                {/* Search bar */}
-                {convoFiles.length > 0 && (
+                {/* Indexing progress */}
+                {isPreloading && globalProgress.char === char?.id && (
                   <div style={{ padding: "4px 0 8px", borderBottom: "1px solid #1a1a24", marginBottom: 8, flexShrink: 0 }}>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        type="text"
-                        placeholder="Search dialog..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{
-                          width: "100%", padding: "7px 10px 7px 28px", borderRadius: 6,
-                          border: `1px solid ${searchQuery ? accentColor + "44" : "#1a1a24"}`,
-                          background: "#0c0c14", color: "#d4d4d8", fontSize: 12,
-                          fontFamily: "'Rajdhani', sans-serif", outline: "none",
-                          transition: "border-color 0.15s",
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = accentColor + "66"}
-                        onBlur={(e) => e.target.style.borderColor = searchQuery ? accentColor + "44" : "#1a1a24"}
-                      />
-                      <span style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", fontSize: 12, opacity: 0.3, pointerEvents: "none" }}>🔍</span>
-                      {searchQuery && (
-                        <button onClick={() => { setSearchQuery(""); setDebouncedQuery(""); }} style={{
-                          position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
-                          background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 14, padding: 2,
-                        }}>×</button>
-                      )}
+                    <div style={{ fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace", display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 10, height: 10, border: `2px solid ${accentColor}44`, borderTopColor: accentColor, borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
+                      Indexing {globalProgress.done}/{globalProgress.total}...
                     </div>
-                    {/* Indexing progress */}
-                    {isPreloading && globalProgress.char === char?.id && (
-                      <div style={{ marginTop: 6, fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace", display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 10, height: 10, border: `2px solid ${accentColor}44`, borderTopColor: accentColor, borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
-                        Indexing {globalProgress.done}/{globalProgress.total}...
-                      </div>
-                    )}
-                    {debouncedQuery && charCache?.index && (() => {
-                      const filtered = getFilteredFiles(convoFiles);
-                      return filtered ? (
-                        <div style={{ marginTop: 4, fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace" }}>
-                          {filtered.length} result{filtered.length !== 1 ? "s" : ""}
-                        </div>
-                      ) : null;
-                    })()}
                   </div>
                 )}
 
@@ -857,16 +785,9 @@ function App() {
                 )}
 
                 {(() => {
-                  const filteredSet = getFilteredFiles(convoFiles);
-                  const isSearching = debouncedQuery.trim().length > 0;
-                  const filterFn = (f) => !filteredSet || filteredSet.includes(f);
-                  const matchingLines = (f) => isSearching ? getMatchingLines(f) : [];
-
                   const renderConvoButton = (f) => {
                     const active = selectedFile === f;
                     const convoNum = f.match(/Convo(\d+)/)?.[1];
-                    const matches = matchingLines(f);
-                    const q = normalizeSearch(debouncedQuery);
                     return (
                       <button key={f} onClick={() => { setSelectedFile(f); fetchAndAnalyze(f); }} style={{
                         display: "block", width: "100%", padding: "7px 10px", marginBottom: 2,
@@ -875,49 +796,23 @@ function App() {
                         color: active ? accentColor : "#71717a",
                         fontFamily: "'Rajdhani', sans-serif", fontSize: 12, fontWeight: active ? 600 : 400,
                       }}>
-                        <div>{convoNum ? `Conversation ${convoNum}` : prettifyName(f)}</div>
-                        {matches.map((line, mi) => {
-                          const idx = line.toLowerCase().indexOf(q);
-                          const start = Math.max(0, idx - 25);
-                          const snippet = (start > 0 ? "…" : "") + line.slice(start, start + 60) + (start + 60 < line.length ? "…" : "");
-                          const sIdx = snippet.toLowerCase().indexOf(q);
-                          return (
-                            <div key={mi} style={{ fontSize: 10, color: "#52525b", marginTop: 2, lineHeight: 1.4, fontStyle: "italic" }}>
-                              "{sIdx >= 0 ? (
-                                <>{snippet.slice(0, sIdx)}<span style={{ color: accentColor, fontWeight: 600, fontStyle: "normal" }}>{snippet.slice(sIdx, sIdx + q.length)}</span>{snippet.slice(sIdx + q.length)}</>
-                              ) : snippet}"
-                            </div>
-                          );
-                        })}
+                        {convoNum ? `Conversation ${convoNum}` : prettifyName(f)}
                       </button>
                     );
                   };
 
                   return (
                     <>
-                      {Object.entries(ranks).sort(([a],[b]) => a - b).map(([rank, files]) => {
-                        const visibleFiles = files.sort().filter(filterFn);
-                        if (visibleFiles.length === 0) return null;
-                        return (
-                          <div key={rank} style={{ marginBottom: 12 }}>
-                            <div style={{ fontSize: 10, letterSpacing: 3, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 8px", textTransform: "uppercase" }}>Rank {rank}</div>
-                            {visibleFiles.map(renderConvoButton)}
-                          </div>
-                        );
-                      })}
-                      {(() => {
-                        const visibleOther = other.sort().filter(filterFn);
-                        if (visibleOther.length === 0) return null;
-                        return (
-                          <div style={{ marginBottom: 12 }}>
-                            <div style={{ fontSize: 10, letterSpacing: 3, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 8px" }}>OTHER</div>
-                            {visibleOther.map(renderConvoButton)}
-                          </div>
-                        );
-                      })()}
-                      {isSearching && filteredSet && filteredSet.length === 0 && (
-                        <div style={{ padding: 16, textAlign: "center", color: "#3f3f46", fontSize: 12, fontFamily: "'Rajdhani', monospace" }}>
-                          No conversations match "{debouncedQuery}"
+                      {Object.entries(ranks).sort(([a],[b]) => a - b).map(([rank, files]) => (
+                        <div key={rank} style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 10, letterSpacing: 3, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 8px", textTransform: "uppercase" }}>Rank {rank}</div>
+                          {files.sort().map(renderConvoButton)}
+                        </div>
+                      ))}
+                      {other.length > 0 && (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 10, letterSpacing: 3, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 8px" }}>OTHER</div>
+                          {other.sort().map(renderConvoButton)}
                         </div>
                       )}
                     </>
