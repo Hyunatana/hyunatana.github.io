@@ -289,6 +289,9 @@ function App() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const fileInputRef = useRef(null);
   const debounceRef = useRef(null);
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [globalSearchDebounced, setGlobalSearchDebounced] = useState("");
+  const globalDebounceRef = useRef(null);
 
   // Build initial cache from local data or localStorage
   const [cache, setCache] = useState(() => {
@@ -538,6 +541,59 @@ function App() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [searchQuery]);
 
+  // Debounce global search (200ms)
+  useEffect(() => {
+    if (globalDebounceRef.current) clearTimeout(globalDebounceRef.current);
+    globalDebounceRef.current = setTimeout(() => setGlobalSearchDebounced(globalSearch), 200);
+    return () => { if (globalDebounceRef.current) clearTimeout(globalDebounceRef.current); };
+  }, [globalSearch]);
+
+  // Global search across all characters
+  const globalResults = useMemo(() => {
+    if (!globalSearchDebounced.trim()) return null;
+    const q = globalSearchDebounced.toLowerCase();
+    const results = [];
+    for (const character of CHARACTERS) {
+      const cc = cache[character.dir];
+      if (!cc?.indexLower) continue;
+      const matches = [];
+      for (const file of (cc.files || [])) {
+        const nameMatch = prettifyName(file).toLowerCase().includes(q);
+        const lines = cc.indexLower[file] || [];
+        const lineIdx = lines.findIndex(l => l.includes(q));
+        if (nameMatch || lineIdx >= 0) {
+          const snippet = lineIdx >= 0 ? cc.index[file][lineIdx] : null;
+          matches.push({ file, snippet });
+        }
+      }
+      if (matches.length > 0) results.push({ character, matches });
+    }
+    return results;
+  }, [globalSearchDebounced, cache]);
+
+  // Fetch and analyze a specific character's SVG (doesn't depend on char state)
+  const fetchAndAnalyzeFor = useCallback(async (charDir, filename) => {
+    setLoading(true);
+    setAnalysis(null);
+    setError(null);
+    try {
+      let svgText;
+      const localSvg = cache[charDir]?.svgs?.[filename];
+      if (localSvg) {
+        svgText = localSvg;
+      } else {
+        const url = CORS_PROXY + encodeURIComponent(BASE + charDir + "/" + filename);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        svgText = await res.text();
+      }
+      setAnalysis(analyzeFlowchart(svgText));
+    } catch (e) {
+      setError("Failed to load: " + e.message);
+    }
+    setLoading(false);
+  }, [cache]);
+
   const { ranks, other } = categorizeSvgs(convoFiles);
 
   return (
@@ -555,6 +611,41 @@ function App() {
           <div style={{ fontSize: 9, letterSpacing: 4, color: "#52525b", fontFamily: "'Rajdhani', monospace", textTransform: "uppercase" }}>Warframe 1999</div>
           <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "'Chakra Petch', monospace", color: "#e4e4e7", letterSpacing: 1, marginTop: 2 }}>ROUTE GUIDE</div>
         </div>
+
+        {/* Global search bar */}
+        <div style={{ padding: "8px 10px 6px", borderBottom: "1px solid #1a1a24" }}>
+          <div style={{ position: "relative" }}>
+            <input
+              type="text"
+              placeholder="Search all characters..."
+              value={globalSearch}
+              onChange={e => setGlobalSearch(e.target.value)}
+              style={{
+                width: "100%", padding: "7px 10px 7px 28px", borderRadius: 6,
+                border: `1px solid ${globalSearch ? "#60a5fa44" : "#1a1a24"}`,
+                background: "#08080c", color: "#d4d4d8", fontSize: 11,
+                fontFamily: "'Rajdhani', sans-serif", outline: "none", transition: "border-color 0.15s",
+              }}
+              onFocus={e => e.target.style.borderColor = "#60a5fa66"}
+              onBlur={e => e.target.style.borderColor = globalSearch ? "#60a5fa44" : "#1a1a24"}
+            />
+            <span style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", fontSize: 11, opacity: 0.3, pointerEvents: "none" }}>🔍</span>
+            {globalSearch && (
+              <button onClick={() => { setGlobalSearch(""); setGlobalSearchDebounced(""); }} style={{
+                position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
+                background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 14, padding: 2,
+              }}>×</button>
+            )}
+          </div>
+          {globalSearchDebounced && globalResults !== null && (
+            <div style={{ marginTop: 4, fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace" }}>
+              {globalResults.length === 0
+                ? "No results"
+                : `${globalResults.reduce((a, r) => a + r.matches.length, 0)} results · ${globalResults.length} character${globalResults.length !== 1 ? "s" : ""}`}
+            </div>
+          )}
+        </div>
+
         <div style={{ flex: 1, overflowY: "auto", padding: "8px 6px" }}>
           {CHARACTERS.map((c, i) => {
             const active = charIdx === i;
@@ -621,7 +712,64 @@ function App() {
           alignItems: "center", justifyContent: "center", fontSize: 18,
         }}>☰</button>
 
-        {!char ? (
+        {globalSearchDebounced.trim() ? (
+          /* ── Global search results ── */
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px 80px" }}>
+            <div style={{ fontSize: 11, color: "#52525b", fontFamily: "'Rajdhani', monospace", letterSpacing: 2, marginBottom: 20 }}>
+              {globalResults && globalResults.length > 0
+                ? `${globalResults.reduce((a, r) => a + r.matches.length, 0)} RESULTS ACROSS ${globalResults.length} CHARACTER${globalResults.length !== 1 ? "S" : ""}`
+                : `NO RESULTS FOR "${globalSearchDebounced}"`}
+            </div>
+            {globalResults && globalResults.map(({ character, matches }) => (
+              <div key={character.id} style={{ marginBottom: 28 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${character.color}22` }}>
+                  <span style={{ fontSize: 16 }}>{character.portrait}</span>
+                  <span style={{ fontFamily: "'Chakra Petch', monospace", fontWeight: 700, fontSize: 14, color: character.color }}>{character.id}</span>
+                  <span style={{ fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace" }}>{matches.length} match{matches.length !== 1 ? "es" : ""}</span>
+                </div>
+                {matches.slice(0, 8).map(({ file, snippet }) => {
+                  const q = globalSearchDebounced.toLowerCase();
+                  const convoNum = file.match(/Convo(\d+)/)?.[1];
+                  const label = convoNum ? `Conversation ${convoNum}` : prettifyName(file);
+                  return (
+                    <button key={file} onClick={() => {
+                      const idx = CHARACTERS.findIndex(c => c.id === character.id);
+                      setCharIdx(idx);
+                      setSelectedFile(file);
+                      setSearchQuery(""); setDebouncedQuery("");
+                      setGlobalSearch(""); setGlobalSearchDebounced("");
+                      fetchAndAnalyzeFor(character.dir, file);
+                    }} style={{
+                      display: "block", width: "100%", padding: "8px 12px", marginBottom: 4,
+                      borderRadius: 6, border: `1px solid ${character.color}18`,
+                      background: `${character.color}08`, textAlign: "left", cursor: "pointer",
+                    }}>
+                      <div style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: 12, color: character.color }}>{label}</div>
+                      {snippet && (() => {
+                        const idx = snippet.toLowerCase().indexOf(q);
+                        const start = Math.max(0, idx - 30);
+                        const raw = (start > 0 ? "…" : "") + snippet.slice(start, start + 80) + (start + 80 < snippet.length ? "…" : "");
+                        const sIdx = raw.toLowerCase().indexOf(q);
+                        return (
+                          <div style={{ fontSize: 11, color: "#52525b", marginTop: 3, fontFamily: "'Rajdhani', sans-serif", lineHeight: 1.4 }}>
+                            "{sIdx >= 0 ? (
+                              <>{raw.slice(0, sIdx)}<span style={{ color: character.color, fontWeight: 600 }}>{raw.slice(sIdx, sIdx + q.length)}</span>{raw.slice(sIdx + q.length)}</>
+                            ) : raw}"
+                          </div>
+                        );
+                      })()}
+                    </button>
+                  );
+                })}
+                {matches.length > 8 && (
+                  <div style={{ fontSize: 10, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 12px" }}>
+                    +{matches.length - 8} more — refine your search to narrow results
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : !char ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, opacity: 0.4 }}>
             <div style={{ fontSize: 48 }}>⚗️</div>
             <div style={{ fontSize: 14, fontFamily: "'Rajdhani', monospace", letterSpacing: 2 }}>SELECT A CHARACTER</div>
