@@ -314,11 +314,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
-  const [corsError, setCorsError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const fileInputRef = useRef(null);
   const debounceRef = useRef(null);
   const [globalSearch, setGlobalSearch] = useState("");
   const [globalSearchDebounced, setGlobalSearchDebounced] = useState("");
@@ -527,38 +525,12 @@ function App() {
     setLoading(false);
   }, [char, cache]);
 
-  // Manual upload handler
-  const handleFileUpload = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result;
-      if (text) {
-        setSelectedFile(file.name);
-        setLoading(true);
-        setTimeout(() => {
-          try {
-            currentSvgRef.current = text;
-            setAnalysis(analyzeFlowchart(text, booleansRef.current));
-            setError(null);
-          } catch (err) {
-            setError("Parse error: " + err.message);
-          }
-          setLoading(false);
-        }, 50);
-      }
-    };
-    reader.readAsText(file);
-  }, []);
-
   // If selected character has no cached files and preloader isn't running, fetch file list
   useEffect(() => {
     if (HAS_LOCAL) return; // already have everything
     if (!char) return;
     if (charCache?.files?.length) return;
     if (isPreloading) return;
-    setCorsError(false);
     fetchCharFiles(char).then(files => {
       if (files.length > 0) {
         setCache(prev => {
@@ -567,7 +539,7 @@ function App() {
           return next;
         });
       }
-    }).catch(() => setCorsError(true));
+    }).catch(() => {});
   }, [char, isPreloading]);
 
   // Debounce search input (150ms)
@@ -698,7 +670,7 @@ function App() {
             const active = charIdx === i;
             return (
               <button key={c.id} onClick={() => {
-                setCharIdx(i); setSelectedFile(null); setAnalysis(null); setError(null); setCorsError(false); setSidebarOpen(false);
+                setCharIdx(i); setSelectedFile(null); setAnalysis(null); setError(null); setSidebarOpen(false);
                 setSearchQuery(""); setDebouncedQuery("");
                 currentSvgRef.current = null;
               }} style={{
@@ -739,13 +711,6 @@ function App() {
               }}>Clear</button>
             </div>
           )}
-          <input ref={fileInputRef} type="file" accept=".svg" onChange={handleFileUpload} style={{ display: "none" }} />
-          <button onClick={() => fileInputRef.current?.click()} style={{
-            width: "100%", padding: "8px", background: "#1a1a24", border: "1px solid #27272a",
-            borderRadius: 6, color: "#71717a", cursor: "pointer", fontSize: 11, fontFamily: "'Rajdhani', monospace", letterSpacing: 1,
-          }}>
-            📁 UPLOAD SVG
-          </button>
         </div>
       </aside>
 
@@ -830,7 +795,7 @@ function App() {
                 {char.portrait} {char.id}
               </div>
               <div style={{ fontSize: 12, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginTop: 2 }}>
-                {convoFiles.length > 0 ? `${convoFiles.length} conversations` + (charCache?.index ? " · indexed ✓" : "") : corsError && !isPreloading ? "Upload SVGs manually (see below)" : isPreloading ? "Indexing in background..." : "Loading..."}
+                {convoFiles.length > 0 ? `${convoFiles.length} conversations` + (charCache?.index ? " · indexed ✓" : "") : isPreloading ? "Indexing in background..." : "Loading..."}
               </div>
             </div>
 
@@ -883,16 +848,7 @@ function App() {
                 )}
 
                 <div style={{ flex: 1, overflowY: "auto" }}>
-                {corsError && !isPreloading && convoFiles.length === 0 && (
-                  <div style={{ padding: "12px", background: "#1c1917", border: "1px solid #44403c", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#a8a29e", lineHeight: 1.6 }}>
-                    <strong style={{ color: "#fbbf24" }}>⚠️ CORS Blocked</strong><br/>
-                    Can't auto-fetch from kim.browse.wf.<br/><br/>
-                    <strong>To fix:</strong> Download SVGs from{" "}
-                    <a href={BASE + char.dir + "/"} target="_blank" rel="noreferrer" style={{ color: accentColor }}>kim.browse.wf</a>
-                    {" "}and use the <strong>📁 Upload SVG</strong> button in the sidebar.
-                  </div>
-                )}
-                {!convoFiles.length && !corsError && !isPreloading && <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12 }}>Loading file list...</div>}
+                {!convoFiles.length && !isPreloading && <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12 }}>Loading file list...</div>}
                 {!convoFiles.length && isPreloading && (
                   <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12, fontFamily: "'Rajdhani', monospace", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 16, height: 16, border: `2px solid ${accentColor}44`, borderTopColor: accentColor, borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
@@ -989,7 +945,7 @@ function App() {
                   <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8, opacity: 0.3, paddingTop: 80 }}>
                     <div style={{ fontSize: 32 }}>💬</div>
                     <div style={{ fontSize: 12, fontFamily: "'Rajdhani', monospace", letterSpacing: 2 }}>
-                      {corsError ? "UPLOAD AN SVG TO START" : "PICK A CONVERSATION"}
+                      PICK A CONVERSATION
                     </div>
                   </div>
                 )}
