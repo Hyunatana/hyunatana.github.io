@@ -37,12 +37,14 @@ button:hover { filter: brightness(1.15); }
 </head>
 <body>
 <div id="root"></div>
+<script src="data.js" onerror="console.log('No local data.js found, using CORS proxy mode')"></script>
 <script type="text/babel">
-const { useState, useEffect, useCallback, useRef } = React;
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
 const BASE = "https://kim.browse.wf/flowcharts_svg/en/";
 const CORS_PROXY = "https://corsproxy.io/?";
-
+const LOCAL_DATA = window.WF1999_DATA || null;
+const HAS_LOCAL = !!LOCAL_DATA;
 const CHARACTERS = [
   { id: "Aoi", dir: "AoiDialogue_rom.dialogue", color: "#60a5fa", portrait: "❄️" },
   { id: "Arthur", dir: "ArthurDialogue_rom.dialogue", color: "#f87171", portrait: "⚔️" },
@@ -254,6 +256,26 @@ function categorizeSvgs(files) {
   return { ranks, other };
 }
 
+/* ─── STATIC HELPERS (used during init before hooks) ─── */
+function extractDialogTextStatic(svgText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(svgText, "image/svg+xml");
+  const lines = [];
+  doc.querySelectorAll("g.node").forEach((g) => {
+    const shape = g.querySelector("ellipse") || g.querySelector("polygon");
+    const stroke = shape?.getAttribute("stroke") || "";
+    if (stroke !== "blue" && stroke !== "red") return;
+    const texts = [];
+    g.querySelectorAll("text").forEach((t) => {
+      const txt = t.textContent?.trim();
+      if (txt) texts.push(txt);
+    });
+    const text = texts.join(" ").trim();
+    if (text && !text.match(/^(Check boolean|Boolean )/)) lines.push(text);
+  });
+  return lines;
+}
+
 /* ─── MAIN APP ─── */
 function App() {
   const [charIdx, setCharIdx] = useState(null);
@@ -268,8 +290,25 @@ function App() {
   const fileInputRef = useRef(null);
   const debounceRef = useRef(null);
 
-  // Cache lives in a ref so the preloader never has stale closures
+  // Build initial cache from local data or localStorage
   const [cache, setCache] = useState(() => {
+    if (HAS_LOCAL) {
+      // Build full cache from bundled data.js — instant, no network
+      const c = {};
+      for (const character of CHARACTERS) {
+        const d = LOCAL_DATA[character.dir];
+        if (!d) continue;
+        const index = {};
+        const indexLower = {};
+        for (const [file, svgText] of Object.entries(d.svgs || {})) {
+          const lines = extractDialogTextStatic(svgText);
+          index[file] = lines;
+          indexLower[file] = lines.map(l => l.toLowerCase());
+        }
+        c[character.dir] = { files: d.files || [], svgs: d.svgs || {}, index, indexLower };
+      }
+      return c;
+    }
     try {
       const saved = localStorage.getItem("wf1999_cache_v3");
       return saved ? JSON.parse(saved) : {};
@@ -286,34 +325,18 @@ function App() {
   const charCache = char ? cache[char.dir] : null;
   const convoFiles = charCache?.files || [];
 
-  // Persist cache to localStorage (debounced to avoid thrashing)
+  // Persist cache to localStorage (only in network mode)
   const saveTimerRef = useRef(null);
   useEffect(() => {
+    if (HAS_LOCAL) return; // no need to cache, we have bundled data
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       try { localStorage.setItem("wf1999_cache_v3", JSON.stringify(cache)); } catch {}
     }, 1000);
   }, [cache]);
 
-  // Extract dialog text from SVG
-  const extractDialogText = (svgText) => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(svgText, "image/svg+xml");
-    const lines = [];
-    doc.querySelectorAll("g.node").forEach((g) => {
-      const shape = g.querySelector("ellipse") || g.querySelector("polygon");
-      const stroke = shape?.getAttribute("stroke") || "";
-      if (stroke !== "blue" && stroke !== "red") return;
-      const texts = [];
-      g.querySelectorAll("text").forEach((t) => {
-        const txt = t.textContent?.trim();
-        if (txt) texts.push(txt);
-      });
-      const text = texts.join(" ").trim();
-      if (text && !text.match(/^(Check boolean|Boolean )/)) lines.push(text);
-    });
-    return lines;
-  };
+  // Use the static helper
+  const extractDialogText = extractDialogTextStatic;
 
   // Fetch file list for one character
   const fetchCharFiles = async (character) => {
@@ -325,8 +348,9 @@ function App() {
     return matches.map((m) => m[1]).sort();
   };
 
-  // Preload ALL characters on mount — uses refs to avoid stale closures
+  // Preload ALL characters on mount (skip if local data bundled)
   useEffect(() => {
+    if (HAS_LOCAL) return; // everything already loaded from data.js
     let cancelled = false;
 
     const isCharCached = (dir) => {
@@ -446,17 +470,24 @@ function App() {
     setAnalysis(null);
     setError(null);
     try {
-      const url = CORS_PROXY + encodeURIComponent(BASE + char.dir + "/" + filename);
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const svgText = await res.text();
+      let svgText;
+      // Use local bundled SVG if available
+      const localSvg = cache[char.dir]?.svgs?.[filename];
+      if (localSvg) {
+        svgText = localSvg;
+      } else {
+        const url = CORS_PROXY + encodeURIComponent(BASE + char.dir + "/" + filename);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        svgText = await res.text();
+      }
       const result = analyzeFlowchart(svgText);
       setAnalysis(result);
     } catch (e) {
       setError("Failed to load: " + e.message);
     }
     setLoading(false);
-  }, [char]);
+  }, [char, cache]);
 
   // Manual upload handler
   const handleFileUpload = useCallback((e) => {
@@ -484,9 +515,10 @@ function App() {
 
   // If selected character has no cached files and preloader isn't running, fetch file list
   useEffect(() => {
+    if (HAS_LOCAL) return; // already have everything
     if (!char) return;
-    if (charCache?.files?.length) return; // already have files
-    if (isPreloading) return; // preloader will handle it, don't compete
+    if (charCache?.files?.length) return;
+    if (isPreloading) return;
     setCorsError(false);
     fetchCharFiles(char).then(files => {
       if (files.length > 0) {
@@ -549,13 +581,18 @@ function App() {
         </div>
         <div style={{ padding: "10px", borderTop: "1px solid #1a1a24" }}>
           {/* Global preload status */}
-          {isPreloading && (
+          {HAS_LOCAL && (
+            <div style={{ marginBottom: 8, padding: "6px 8px", background: "#052e1611", border: "1px solid #16a34a33", borderRadius: 6, fontSize: 10, color: "#4ade80", fontFamily: "'Rajdhani', monospace" }}>
+              ⚡ Local data · instant mode
+            </div>
+          )}
+          {!HAS_LOCAL && isPreloading && (
             <div style={{ marginBottom: 8, padding: "6px 8px", background: "#0f172a", border: "1px solid #1e3a5f", borderRadius: 6, fontSize: 10, color: "#60a5fa", fontFamily: "'Rajdhani', monospace", display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 8, height: 8, border: "2px solid #60a5fa44", borderTopColor: "#60a5fa", borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
               Caching {globalProgress.char}... {globalProgress.done}/{globalProgress.total}
             </div>
           )}
-          {!isPreloading && Object.keys(cache).length > 0 && (
+          {!HAS_LOCAL && !isPreloading && Object.keys(cache).length > 0 && (
             <div style={{ marginBottom: 8, padding: "6px 8px", background: "#052e1611", border: "1px solid #16a34a33", borderRadius: 6, fontSize: 10, color: "#4ade80", fontFamily: "'Rajdhani', monospace", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>✓ {Object.keys(cache).length}/{CHARACTERS.length} cached</span>
               <button onClick={() => { localStorage.removeItem("wf1999_cache_v3"); setCache({}); cacheRef.current = {}; location.reload(); }} style={{
