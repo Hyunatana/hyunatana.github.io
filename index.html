@@ -236,6 +236,10 @@ function analyzeFlowchart(svgText) {
 }
 
 /* ─── UTILITIES ─── */
+function normalizeSearch(s) {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function prettifyName(filename) {
   return filename.replace(/\.svg$/, "").replace(/([A-Z])/g, " $1").replace(/(\d+)/g, " $1 ").replace(/\s+/g, " ").trim();
 }
@@ -303,7 +307,7 @@ function App() {
         for (const [file, svgText] of Object.entries(d.svgs || {})) {
           const lines = extractDialogTextStatic(svgText);
           index[file] = lines;
-          indexLower[file] = lines.map(l => l.toLowerCase());
+          indexLower[file] = lines.map(normalizeSearch);
         }
         c[character.dir] = { files: d.files || [], svgs: d.svgs || {}, index, indexLower };
       }
@@ -397,7 +401,7 @@ function App() {
           if (r.status === "fulfilled") {
             const lines = extractDialogText(r.value.text);
             idx[r.value.file] = lines;
-            idxLower[r.value.file] = lines.map(l => l.toLowerCase());
+            idxLower[r.value.file] = lines.map(normalizeSearch);
           }
         }
         done += batch.length;
@@ -440,7 +444,7 @@ function App() {
   // Filtered file list based on search
   const getFilteredFiles = useCallback((files) => {
     if (!debouncedQuery.trim()) return null;
-    const q = debouncedQuery.toLowerCase();
+    const q = normalizeSearch(debouncedQuery);
     const lowerIndex = charCache?.indexLower;
     if (!lowerIndex) return null;
     return files.filter((f) => {
@@ -453,7 +457,7 @@ function App() {
   // Get matching lines for a file
   const getMatchingLines = useCallback((filename) => {
     if (!debouncedQuery.trim() || !charCache) return [];
-    const q = debouncedQuery.toLowerCase();
+    const q = normalizeSearch(debouncedQuery);
     const lines = charCache.index?.[filename] || [];
     const lowerLines = charCache.indexLower?.[filename] || [];
     const matches = [];
@@ -548,14 +552,14 @@ function App() {
   // Global search across all characters
   const globalResults = useMemo(() => {
     if (!globalSearchDebounced.trim()) return null;
-    const q = globalSearchDebounced.toLowerCase();
+    const q = normalizeSearch(globalSearchDebounced);
     const results = [];
     for (const character of CHARACTERS) {
       const cc = cache[character.dir];
       if (!cc?.indexLower) continue;
       const matches = [];
       for (const file of (cc.files || [])) {
-        const nameMatch = prettifyName(file).toLowerCase().includes(q);
+        const nameMatch = normalizeSearch(prettifyName(file)).includes(q);
         const lines = cc.indexLower[file] || [];
         const lineIdx = lines.findIndex(l => l.includes(q));
         if (nameMatch || lineIdx >= 0) {
@@ -859,7 +863,7 @@ function App() {
                     const active = selectedFile === f;
                     const convoNum = f.match(/Convo(\d+)/)?.[1];
                     const matches = matchingLines(f);
-                    const q = debouncedQuery.toLowerCase();
+                    const q = normalizeSearch(debouncedQuery);
                     return (
                       <button key={f} onClick={() => { setSelectedFile(f); fetchAndAnalyze(f); }} style={{
                         display: "block", width: "100%", padding: "7px 10px", marginBottom: 2,
