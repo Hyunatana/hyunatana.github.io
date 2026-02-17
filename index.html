@@ -11,111 +11,27 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #root { height: 100%; }
-body { background: #5a5a5a; color: #000; font-family: 'Tahoma', 'Arial', sans-serif; }
-
-/* Windows XP style scrollbars */
-::-webkit-scrollbar { width: 16px; }
-::-webkit-scrollbar-track { background: #d4d0c8; border-top: 1px solid #808080; border-left: 1px solid #808080; }
-::-webkit-scrollbar-thumb { background: #d4d0c8; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #808080; border-bottom: 1px solid #808080; }
-::-webkit-scrollbar-thumb:hover { background: #c0bdb5; }
-::-webkit-scrollbar-button { display: block; width: 16px; height: 16px; background: #d4d0c8; border-top: 1px solid #fff; border-left: 1px solid #fff; border-right: 1px solid #808080; border-bottom: 1px solid #808080; }
-
+body { background: #08080c; color: #d4d4d8; font-family: 'Segoe UI', system-ui, sans-serif; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .step-card { animation: fadeIn 0.25s ease-out both; }
-
-/* KIM UI classes */
-.kim-title-bar {
-  background: linear-gradient(to right, #1a5f5f, #2d8080 35%, #2d8080 65%, #1a5f5f);
-  padding: 2px 3px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  user-select: none;
-  flex-shrink: 0;
-}
-.kim-title-btn {
-  width: 16px;
-  height: 14px;
-  background: #d4d0c8;
-  border-top: 1px solid #fff;
-  border-left: 1px solid #fff;
-  border-right: 1px solid #808080;
-  border-bottom: 1px solid #808080;
-  font-size: 9px;
-  padding: 0;
-  cursor: default;
-  color: #000;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: inherit;
-}
-.kim-section-label {
-  padding: 2px 8px;
-  font-size: 9px;
-  font-weight: 700;
-  color: #555;
-  letter-spacing: 1px;
-  border-bottom: 1px solid #808080;
-  background: #d4d0c8;
-  text-transform: uppercase;
-}
-.kim-raised {
-  border-top: 1px solid #fff;
-  border-left: 1px solid #fff;
-  border-right: 1px solid #808080;
-  border-bottom: 1px solid #808080;
-}
-.kim-sunken {
-  border-top: 1px solid #808080;
-  border-left: 1px solid #808080;
-  border-right: 1px solid #fff;
-  border-bottom: 1px solid #fff;
-}
-.kim-btn {
-  background: #d4d0c8;
-  border-top: 1px solid #fff;
-  border-left: 1px solid #fff;
-  border-right: 1px solid #808080;
-  border-bottom: 1px solid #808080;
-  padding: 3px 10px;
-  cursor: pointer;
-  font-size: 11px;
-  font-family: inherit;
-}
-.kim-btn:active {
-  border-top: 1px solid #808080;
-  border-left: 1px solid #808080;
-  border-right: 1px solid #fff;
-  border-bottom: 1px solid #fff;
-}
-.kim-input {
-  border-top: 1px solid #808080;
-  border-left: 1px solid #808080;
-  border-right: 1px solid #fff;
-  border-bottom: 1px solid #fff;
-  background: #fff;
-  padding: 2px 4px;
-  font-family: inherit;
-  font-size: 11px;
-  outline: none;
-  color: #000;
-}
-
 button { font-family: inherit; }
-button:hover { filter: brightness(0.97); }
+button:hover { filter: brightness(1.15); }
 
 /* Mobile sidebar toggle */
 @media (max-width: 768px) {
-  .sidebar { position: fixed !important; left: -200px; z-index: 100; transition: left 0.25s ease; height: 100vh !important; }
+  .sidebar { position: fixed !important; left: -240px; z-index: 100; transition: left 0.25s ease; height: 100vh !important; }
   .sidebar.open { left: 0; }
   .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 99; }
   .sidebar-overlay.open { display: block; }
   .mobile-toggle { display: flex !important; }
   .convo-panel { min-width: unset !important; width: 100% !important; border-right: none !important; max-height: 200px; }
   .main-layout { flex-direction: column !important; }
-  .route-panel { padding: 8px 8px 60px !important; }
+  .route-panel { padding: 16px 12px 80px !important; }
 }
 </style>
 </head>
@@ -416,7 +332,7 @@ function App() {
   const [isPreloading, setIsPreloading] = useState(false);
 
   const char = charIdx !== null ? CHARACTERS[charIdx] : null;
-  const accentColor = char?.color || "#1a6060";
+  const accentColor = char?.color || "#71717a";
   const charCache = char ? cache[char.dir] : null;
   const convoFiles = charCache?.files || [];
 
@@ -689,696 +605,482 @@ function App() {
   const { ranks, other } = categorizeSvgs(convoFiles);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", padding: 2, background: "#5a5a5a", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
 
-      {/* KIM Title bar */}
-      <div className="kim-title-bar">
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 11, color: "#fff", fontWeight: 700, letterSpacing: 0.5, paddingLeft: 2 }}>
-            💬 Welcome to KIM
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: 2 }}>
-          <button className="kim-title-btn">–</button>
-          <button className="kim-title-btn">□</button>
-          <button className="kim-title-btn">✕</button>
-        </div>
-      </div>
+      {/* Mobile overlay */}
+      <div className={`sidebar-overlay ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
 
-      {/* Window body */}
-      <div style={{
-        flex: 1, display: "flex", minHeight: 0,
-        background: "#d4d0c8",
-        borderTop: "1px solid #fff",
-        borderLeft: "1px solid #fff",
-        borderRight: "2px solid #404040",
-        borderBottom: "2px solid #404040",
-        overflow: "hidden",
+      {/* Sidebar */}
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} style={{
+        width: 220, minWidth: 220, borderRight: "1px solid #1a1a24", background: "#0c0c14",
+        display: "flex", flexDirection: "column", overflow: "hidden",
       }}>
+        <div style={{ padding: "16px 14px 12px", borderBottom: "1px solid #1a1a24" }}>
+          <div style={{ fontSize: 9, letterSpacing: 4, color: "#52525b", fontFamily: "'Rajdhani', monospace", textTransform: "uppercase" }}>Warframe 1999</div>
+          <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "'Chakra Petch', monospace", color: "#e4e4e7", letterSpacing: 1, marginTop: 2 }}>ROUTE GUIDE</div>
+        </div>
 
-        {/* Mobile overlay */}
-        <div className={`sidebar-overlay ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
+        {/* Global search bar */}
+        <div style={{ padding: "8px 10px 6px", borderBottom: "1px solid #1a1a24" }}>
+          <div style={{ position: "relative" }}>
+            <input
+              type="text"
+              placeholder="Search all characters..."
+              value={globalSearch}
+              onChange={e => setGlobalSearch(e.target.value)}
+              style={{
+                width: "100%", padding: "7px 10px 7px 28px", borderRadius: 6,
+                border: `1px solid ${globalSearch ? "#60a5fa44" : "#1a1a24"}`,
+                background: "#08080c", color: "#d4d4d8", fontSize: 11,
+                fontFamily: "'Rajdhani', sans-serif", outline: "none", transition: "border-color 0.15s",
+              }}
+              onFocus={e => e.target.style.borderColor = "#60a5fa66"}
+              onBlur={e => e.target.style.borderColor = globalSearch ? "#60a5fa44" : "#1a1a24"}
+            />
+            <span style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", fontSize: 11, opacity: 0.3, pointerEvents: "none" }}>🔍</span>
+            {globalSearch && (
+              <button onClick={() => { setGlobalSearch(""); setGlobalSearchDebounced(""); }} style={{
+                position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
+                background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 14, padding: 2,
+              }}>×</button>
+            )}
+          </div>
+          {globalSearchDebounced && globalResults !== null && (
+            <div style={{ marginTop: 4, fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace" }}>
+              {globalResults.length === 0
+                ? "No results"
+                : `${globalResults.reduce((a, r) => a + r.matches.length, 0)} results · ${globalResults.length} character${globalResults.length !== 1 ? "s" : ""}`}
+            </div>
+          )}
+        </div>
 
-        {/* Sidebar / Left panel */}
-        <aside className={`sidebar ${sidebarOpen ? "open" : ""}`} style={{
-          width: 200, minWidth: 200,
-          borderRight: "1px solid #808080",
-          background: "#d4d0c8",
-          display: "flex", flexDirection: "column", overflow: "hidden",
-        }}>
-
-          {/* User info section */}
-          <div style={{
-            padding: "6px 8px 5px",
-            borderBottom: "1px solid #808080",
-            background: "#d4d0c8",
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 6px" }}>
+          {CHARACTERS.map((c, i) => {
+            const active = charIdx === i;
+            return (
+              <button key={c.id} onClick={() => {
+                setCharIdx(i); setSelectedFile(null); setAnalysis(null); setError(null); setCorsError(false); setSidebarOpen(false);
+                setSearchQuery(""); setDebouncedQuery("");
+              }} style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                padding: "8px 10px", marginBottom: 2, borderRadius: 6, border: "none",
+                background: active ? `${c.color}15` : "transparent",
+                color: active ? c.color : "#71717a", cursor: "pointer",
+                fontFamily: "'Rajdhani', sans-serif", fontSize: 13, fontWeight: active ? 600 : 400,
+                textAlign: "left", transition: "all 0.15s",
+                borderLeft: active ? `2px solid ${c.color}` : "2px solid transparent",
+              }}>
+                <span style={{ fontSize: 14 }}>{c.portrait}</span>
+                <span style={{ flex: 1 }}>{c.id}</span>
+                {cache[c.dir]?.index && <span style={{ fontSize: 8, color: "#4ade80", opacity: 0.6 }}>●</span>}
+                {isPreloading && globalProgress.char === c.id && <div style={{ width: 6, height: 6, border: "1.5px solid #60a5fa44", borderTopColor: "#60a5fa", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ padding: "10px", borderTop: "1px solid #1a1a24" }}>
+          {/* Global preload status */}
+          {HAS_LOCAL && (
+            <div style={{ marginBottom: 8, padding: "6px 8px", background: "#052e1611", border: "1px solid #16a34a33", borderRadius: 6, fontSize: 10, color: "#4ade80", fontFamily: "'Rajdhani', monospace" }}>
+              ⚡ Local data · instant mode
+            </div>
+          )}
+          {!HAS_LOCAL && isPreloading && (
+            <div style={{ marginBottom: 8, padding: "6px 8px", background: "#0f172a", border: "1px solid #1e3a5f", borderRadius: 6, fontSize: 10, color: "#60a5fa", fontFamily: "'Rajdhani', monospace", display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 8, height: 8, border: "2px solid #60a5fa44", borderTopColor: "#60a5fa", borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
+              Caching {globalProgress.char}... {globalProgress.done}/{globalProgress.total}
+            </div>
+          )}
+          {!HAS_LOCAL && !isPreloading && Object.keys(cache).length > 0 && (
+            <div style={{ marginBottom: 8, padding: "6px 8px", background: "#052e1611", border: "1px solid #16a34a33", borderRadius: 6, fontSize: 10, color: "#4ade80", fontFamily: "'Rajdhani', monospace", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>✓ {Object.keys(cache).length}/{CHARACTERS.length} cached</span>
+              <button onClick={() => { localStorage.removeItem("wf1999_cache_v3"); setCache({}); cacheRef.current = {}; location.reload(); }} style={{
+                background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 9, fontFamily: "'Rajdhani', monospace", textDecoration: "underline",
+              }}>Clear</button>
+            </div>
+          )}
+          <input ref={fileInputRef} type="file" accept=".svg" onChange={handleFileUpload} style={{ display: "none" }} />
+          <button onClick={() => fileInputRef.current?.click()} style={{
+            width: "100%", padding: "8px", background: "#1a1a24", border: "1px solid #27272a",
+            borderRadius: 6, color: "#71717a", cursor: "pointer", fontSize: 11, fontFamily: "'Rajdhani', monospace", letterSpacing: 1,
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-              <div style={{
-                width: 32, height: 32, flexShrink: 0,
-                background: "linear-gradient(135deg, #1a6060, #2d8080)",
-                borderTop: "1px solid #fff", borderLeft: "1px solid #fff",
-                borderRight: "1px solid #808080", borderBottom: "1px solid #808080",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 16,
-              }}>🛡</div>
-              <div>
-                <div style={{ fontSize: 9, color: "#555", fontWeight: 700, letterSpacing: 0.5 }}>USERNAME:</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#000" }}>Hyunatana</div>
-              </div>
+            📁 UPLOAD SVG
+          </button>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+
+        {/* Mobile hamburger */}
+        <button className="mobile-toggle" onClick={() => setSidebarOpen(true)} style={{
+          display: "none", position: "fixed", top: 10, left: 10, zIndex: 98,
+          width: 36, height: 36, borderRadius: 8, border: "1px solid #27272a",
+          background: "#0c0c14", color: "#71717a", cursor: "pointer",
+          alignItems: "center", justifyContent: "center", fontSize: 18,
+        }}>☰</button>
+
+        {globalSearchDebounced.trim() ? (
+          /* ── Global search results ── */
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px 80px" }}>
+            <div style={{ fontSize: 11, color: "#52525b", fontFamily: "'Rajdhani', monospace", letterSpacing: 2, marginBottom: 20 }}>
+              {globalResults && globalResults.length > 0
+                ? `${globalResults.reduce((a, r) => a + r.matches.length, 0)} RESULTS ACROSS ${globalResults.length} CHARACTER${globalResults.length !== 1 ? "S" : ""}`
+                : `NO RESULTS FOR "${globalSearchDebounced}"`}
             </div>
-            <div style={{ fontSize: 9, color: "#555" }}>
-              <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#ffa040", marginRight: 4, verticalAlign: "middle" }} />
-              Online · KIM v1.999
-            </div>
-          </div>
-
-          {/* Global search bar */}
-          <div style={{ padding: "4px 6px 3px", borderBottom: "1px solid #808080" }}>
-            <div style={{ position: "relative" }}>
-              <input
-                type="text"
-                placeholder="Find a contact..."
-                value={globalSearch}
-                onChange={e => setGlobalSearch(e.target.value)}
-                className="kim-input"
-                style={{ width: "100%", paddingLeft: 20, fontSize: 10 }}
-              />
-              <span style={{ position: "absolute", left: 4, top: "50%", transform: "translateY(-50%)", fontSize: 10, opacity: 0.5, pointerEvents: "none" }}>🔍</span>
-              {globalSearch && (
-                <button onClick={() => { setGlobalSearch(""); setGlobalSearchDebounced(""); }} style={{
-                  position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-                  background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 12, padding: 1,
-                }}>×</button>
-              )}
-            </div>
-            {globalSearchDebounced && globalResults !== null && (
-              <div style={{ marginTop: 2, fontSize: 9, color: "#555" }}>
-                {globalResults.length === 0
-                  ? "No results found"
-                  : `${globalResults.reduce((a, r) => a + r.matches.length, 0)} results · ${globalResults.length} character${globalResults.length !== 1 ? "s" : ""}`}
-              </div>
-            )}
-          </div>
-
-          {/* BATCHES section label */}
-          <div className="kim-section-label">BATCHES</div>
-
-          {/* Character contact list */}
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            {CHARACTERS.map((c, i) => {
-              const active = charIdx === i;
-              const isIndexed = !!cache[c.dir]?.index;
-              const isLoading = isPreloading && globalProgress.char === c.id;
-              return (
-                <button key={c.id} onClick={() => {
-                  setCharIdx(i); setSelectedFile(null); setAnalysis(null); setError(null); setCorsError(false); setSidebarOpen(false);
-                  setSearchQuery(""); setDebouncedQuery("");
-                }} style={{
-                  display: "flex", alignItems: "center", gap: 6, width: "100%",
-                  padding: "4px 8px", border: "none",
-                  background: active ? "#1a6060" : "transparent",
-                  color: active ? "#fff" : "#000",
-                  cursor: "pointer", textAlign: "left",
-                  borderBottom: "1px solid transparent",
-                }}>
-                  {/* Portrait square */}
-                  <div style={{
-                    width: 22, height: 22, flexShrink: 0,
-                    background: active ? "#2d8080" : c.color + "33",
-                    border: active ? "1px solid #3d9090" : "1px solid " + c.color + "66",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 11, borderRadius: 1,
-                  }}>{c.portrait}</div>
-                  {/* Name + status */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: active ? "#fff" : "#000", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.id}</div>
-                    <div style={{ fontSize: 9, color: active ? "#b0d8d8" : "#555", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {isLoading ? "Indexing..." : isIndexed ? "Ready to chat" : "Offline"}
-                    </div>
-                  </div>
-                  {/* Online/offline dot */}
-                  {isLoading ? (
-                    <div style={{ width: 8, height: 8, border: `2px solid ${active ? "#3d9090" : "#1a6060"}44`, borderTopColor: active ? "#fff" : "#1a6060", borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
-                  ) : (
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: isIndexed ? "#ffa040" : "#909090", flexShrink: 0, display: "inline-block" }} />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Sidebar bottom section */}
-          <div style={{ padding: "6px 8px", borderTop: "1px solid #808080", background: "#d4d0c8" }}>
-            {HAS_LOCAL && (
-              <div style={{
-                marginBottom: 5, padding: "3px 6px",
-                background: "#e8ffe8",
-                borderTop: "1px solid #808080", borderLeft: "1px solid #808080",
-                borderRight: "1px solid #fff", borderBottom: "1px solid #fff",
-                fontSize: 9, color: "#006600",
-              }}>
-                ⚡ Local data · instant mode
-              </div>
-            )}
-            {!HAS_LOCAL && isPreloading && (
-              <div style={{
-                marginBottom: 5, padding: "3px 6px",
-                background: "#e8f0ff",
-                borderTop: "1px solid #808080", borderLeft: "1px solid #808080",
-                borderRight: "1px solid #fff", borderBottom: "1px solid #fff",
-                fontSize: 9, color: "#003399", display: "flex", alignItems: "center", gap: 4,
-              }}>
-                <div style={{ width: 7, height: 7, border: "2px solid #003399", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
-                Caching {globalProgress.char}... {globalProgress.done}/{globalProgress.total}
-              </div>
-            )}
-            {!HAS_LOCAL && !isPreloading && Object.keys(cache).length > 0 && (
-              <div style={{
-                marginBottom: 5, padding: "3px 6px",
-                background: "#e8ffe8",
-                borderTop: "1px solid #808080", borderLeft: "1px solid #808080",
-                borderRight: "1px solid #fff", borderBottom: "1px solid #fff",
-                fontSize: 9, color: "#006600", display: "flex", justifyContent: "space-between", alignItems: "center",
-              }}>
-                <span>✓ {Object.keys(cache).length}/{CHARACTERS.length} cached</span>
-                <button onClick={() => { localStorage.removeItem("wf1999_cache_v3"); setCache({}); cacheRef.current = {}; location.reload(); }} style={{
-                  background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 9, textDecoration: "underline", padding: 0,
-                }}>Clear</button>
-              </div>
-            )}
-            <input ref={fileInputRef} type="file" accept=".svg" onChange={handleFileUpload} style={{ display: "none" }} />
-            <button onClick={() => fileInputRef.current?.click()} className="kim-btn" style={{ width: "100%", fontSize: 10, textAlign: "center" }}>
-              📁 Upload SVG
-            </button>
-          </div>
-        </aside>
-
-        {/* Main content area */}
-        <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#d4d0c8" }}>
-
-          {/* Mobile hamburger */}
-          <button className="mobile-toggle" onClick={() => setSidebarOpen(true)} style={{
-            display: "none", position: "fixed", top: 22, left: 10, zIndex: 98,
-            width: 28, height: 22,
-            background: "#d4d0c8",
-            borderTop: "1px solid #fff", borderLeft: "1px solid #fff",
-            borderRight: "1px solid #808080", borderBottom: "1px solid #808080",
-            color: "#000", cursor: "pointer",
-            alignItems: "center", justifyContent: "center", fontSize: 14,
-          }}>☰</button>
-
-          {globalSearchDebounced.trim() ? (
-            /* ── Global search results ── */
-            <div style={{ flex: 1, overflowY: "auto", padding: "8px 10px" }}>
-              <div style={{
-                padding: "3px 8px", marginBottom: 8,
-                background: "#1a6060", color: "#fff",
-                fontSize: 11, fontWeight: 700,
-              }}>
-                SEARCH RESULTS
-                {globalResults && globalResults.length > 0
-                  ? ` — ${globalResults.reduce((a, r) => a + r.matches.length, 0)} results across ${globalResults.length} character${globalResults.length !== 1 ? "s" : ""}`
-                  : ` — No results for "${globalSearchDebounced}"`}
-              </div>
-              {globalResults && globalResults.map(({ character, matches }) => (
-                <div key={character.id} style={{ marginBottom: 12 }}>
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "2px 8px", marginBottom: 4,
-                    background: "#1a6060", color: "#fff",
-                    fontSize: 11, fontWeight: 700,
-                  }}>
-                    <span style={{ fontSize: 13 }}>{character.portrait}</span>
-                    <span>{character.id}</span>
-                    <span style={{ fontSize: 9, opacity: 0.8, marginLeft: "auto" }}>{matches.length} match{matches.length !== 1 ? "es" : ""}</span>
-                  </div>
-                  <div style={{ paddingLeft: 4 }}>
-                    {matches.slice(0, 8).map(({ file, snippet }) => {
-                      const q = globalSearchDebounced.toLowerCase();
-                      const convoNum = file.match(/Convo(\d+)/)?.[1];
-                      const label = convoNum ? `Conversation ${convoNum}` : prettifyName(file);
-                      return (
-                        <button key={file} onClick={() => {
-                          const idx = CHARACTERS.findIndex(c => c.id === character.id);
-                          setCharIdx(idx);
-                          setSelectedFile(file);
-                          setSearchQuery(""); setDebouncedQuery("");
-                          setGlobalSearch(""); setGlobalSearchDebounced("");
-                          fetchAndAnalyzeFor(character.dir, file);
-                        }} className="kim-raised" style={{
-                          display: "block", width: "100%", padding: "4px 8px", marginBottom: 2,
-                          background: "#d4d0c8", textAlign: "left", cursor: "pointer", border: "none",
-                          borderTop: "1px solid #fff", borderLeft: "1px solid #fff",
-                          borderRight: "1px solid #808080", borderBottom: "1px solid #808080",
-                        }}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: "#1a6060" }}>{label}</div>
-                          {snippet && (() => {
-                            const idx = snippet.toLowerCase().indexOf(q);
-                            const start = Math.max(0, idx - 30);
-                            const raw = (start > 0 ? "…" : "") + snippet.slice(start, start + 80) + (start + 80 < snippet.length ? "…" : "");
-                            const sIdx = raw.toLowerCase().indexOf(q);
-                            return (
-                              <div style={{ fontSize: 10, color: "#555", marginTop: 2, lineHeight: 1.4 }}>
-                                "{sIdx >= 0 ? (
-                                  <>{raw.slice(0, sIdx)}<span style={{ color: "#1a6060", fontWeight: 700 }}>{raw.slice(sIdx, sIdx + q.length)}</span>{raw.slice(sIdx + q.length)}</>
-                                ) : raw}"
-                              </div>
-                            );
-                          })()}
-                        </button>
-                      );
-                    })}
-                    {matches.length > 8 && (
-                      <div style={{ fontSize: 9, color: "#555", padding: "2px 8px" }}>
-                        +{matches.length - 8} more — refine your search to narrow results
-                      </div>
-                    )}
-                  </div>
+            {globalResults && globalResults.map(({ character, matches }) => (
+              <div key={character.id} style={{ marginBottom: 28 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${character.color}22` }}>
+                  <span style={{ fontSize: 16 }}>{character.portrait}</span>
+                  <span style={{ fontFamily: "'Chakra Petch', monospace", fontWeight: 700, fontSize: 14, color: character.color }}>{character.id}</span>
+                  <span style={{ fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace" }}>{matches.length} match{matches.length !== 1 ? "es" : ""}</span>
                 </div>
-              ))}
-            </div>
-          ) : !char ? (
-            /* ── No character selected: scanline wallpaper ── */
-            <div style={{
-              flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-              flexDirection: "column", gap: 12,
-              background: "#606060",
-              backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(0,0,0,0.08) 1px, rgba(0,0,0,0.08) 2px)",
-            }}>
-              <div style={{ fontSize: 40 }}>💬</div>
-              <div style={{
-                fontSize: 13, fontWeight: 700, color: "#e0e0e0",
-                letterSpacing: 3, textShadow: "0 1px 2px #000",
-              }}>SELECT A CONTACT</div>
-              <div style={{ fontSize: 10, color: "#a0a0a0", letterSpacing: 1 }}>KIM — Karman Instant Messenger</div>
-            </div>
-          ) : (
-            /* ── Character view ── */
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-
-              {/* Character sub-title bar */}
-              <div style={{
-                background: "#1a6060",
-                padding: "3px 10px",
-                display: "flex", alignItems: "center", gap: 8,
-                flexShrink: 0,
-              }}>
-                <div style={{
-                  width: 20, height: 20,
-                  background: accentColor + "44",
-                  border: "1px solid " + accentColor,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 11, flexShrink: 0,
-                }}>{char.portrait}</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{char.id}</div>
-                <div style={{ fontSize: 9, color: "#a0d8d8", marginLeft: "auto" }}>
-                  {convoFiles.length > 0
-                    ? `${convoFiles.length} conversations${charCache?.index ? " · indexed" : ""}`
-                    : corsError && !isPreloading
-                      ? "Upload SVGs manually"
-                      : isPreloading ? "Indexing..." : "Loading..."}
-                </div>
-              </div>
-
-              {/* Warning / info banner */}
-              {corsError && !isPreloading && convoFiles.length === 0 && (
-                <div style={{
-                  padding: "4px 10px",
-                  background: "#ffffc0",
-                  borderBottom: "1px solid #c0c000",
-                  fontSize: 10, color: "#606000", lineHeight: 1.5,
-                  flexShrink: 0,
-                }}>
-                  <strong>CORS Blocked</strong> — Can't auto-fetch from kim.browse.wf.
-                  {" "}Download SVGs from{" "}
-                  <a href={BASE + char.dir + "/"} target="_blank" rel="noreferrer" style={{ color: "#1a6060" }}>kim.browse.wf</a>
-                  {" "}and use the Upload SVG button.
-                </div>
-              )}
-
-              <div className="main-layout" style={{ display: "flex", flex: 1, minHeight: 0 }}>
-
-                {/* Conversation list panel */}
-                <div className="convo-panel" style={{
-                  width: 180, minWidth: 180,
-                  borderRight: "1px solid #808080",
-                  borderTop: "none",
-                  overflowY: "auto",
-                  background: "#d4d0c8",
-                  display: "flex", flexDirection: "column",
-                }}>
-
-                  {/* Convo search */}
-                  {convoFiles.length > 0 && (
-                    <div style={{ padding: "4px 6px 3px", borderBottom: "1px solid #808080", flexShrink: 0 }}>
-                      <div style={{ position: "relative" }}>
-                        <input
-                          type="text"
-                          placeholder="Search dialog..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="kim-input"
-                          style={{ width: "100%", paddingLeft: 18, fontSize: 10 }}
-                        />
-                        <span style={{ position: "absolute", left: 3, top: "50%", transform: "translateY(-50%)", fontSize: 10, opacity: 0.5, pointerEvents: "none" }}>🔍</span>
-                        {searchQuery && (
-                          <button onClick={() => { setSearchQuery(""); setDebouncedQuery(""); }} style={{
-                            position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-                            background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: 12, padding: 1,
-                          }}>×</button>
-                        )}
-                      </div>
-                      {isPreloading && globalProgress.char === char?.id && (
-                        <div style={{ marginTop: 3, fontSize: 9, color: "#555", display: "flex", alignItems: "center", gap: 4 }}>
-                          <div style={{ width: 8, height: 8, border: "2px solid #1a6060", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
-                          Indexing {globalProgress.done}/{globalProgress.total}...
-                        </div>
-                      )}
-                      {debouncedQuery && charCache?.index && (() => {
-                        const filtered = getFilteredFiles(convoFiles);
-                        return filtered ? (
-                          <div style={{ marginTop: 2, fontSize: 9, color: "#555" }}>
-                            {filtered.length} result{filtered.length !== 1 ? "s" : ""}
-                          </div>
-                        ) : null;
-                      })()}
-                    </div>
-                  )}
-
-                  <div style={{ flex: 1, overflowY: "auto" }}>
-                    {!convoFiles.length && !corsError && !isPreloading && (
-                      <div style={{ padding: 10, textAlign: "center", color: "#555", fontSize: 10 }}>Loading file list...</div>
-                    )}
-                    {!convoFiles.length && isPreloading && (
-                      <div style={{ padding: 10, textAlign: "center", color: "#555", fontSize: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 14, height: 14, border: "2px solid #1a6060", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
-                        Waiting for indexer...
-                      </div>
-                    )}
-
-                    {(() => {
-                      const filteredSet = getFilteredFiles(convoFiles);
-                      const isSearching = debouncedQuery.trim().length > 0;
-                      const filterFn = (f) => !filteredSet || filteredSet.includes(f);
-                      const matchingLines = (f) => isSearching ? getMatchingLines(f) : [];
-
-                      const renderConvoButton = (f) => {
-                        const active = selectedFile === f;
-                        const convoNum = f.match(/Convo(\d+)/)?.[1];
-                        const matches = matchingLines(f);
-                        const q = normalizeSearch(debouncedQuery);
+                {matches.slice(0, 8).map(({ file, snippet }) => {
+                  const q = globalSearchDebounced.toLowerCase();
+                  const convoNum = file.match(/Convo(\d+)/)?.[1];
+                  const label = convoNum ? `Conversation ${convoNum}` : prettifyName(file);
+                  return (
+                    <button key={file} onClick={() => {
+                      const idx = CHARACTERS.findIndex(c => c.id === character.id);
+                      setCharIdx(idx);
+                      setSelectedFile(file);
+                      setSearchQuery(""); setDebouncedQuery("");
+                      setGlobalSearch(""); setGlobalSearchDebounced("");
+                      fetchAndAnalyzeFor(character.dir, file);
+                    }} style={{
+                      display: "block", width: "100%", padding: "8px 12px", marginBottom: 4,
+                      borderRadius: 6, border: `1px solid ${character.color}18`,
+                      background: `${character.color}08`, textAlign: "left", cursor: "pointer",
+                    }}>
+                      <div style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: 12, color: character.color }}>{label}</div>
+                      {snippet && (() => {
+                        const idx = snippet.toLowerCase().indexOf(q);
+                        const start = Math.max(0, idx - 30);
+                        const raw = (start > 0 ? "…" : "") + snippet.slice(start, start + 80) + (start + 80 < snippet.length ? "…" : "");
+                        const sIdx = raw.toLowerCase().indexOf(q);
                         return (
-                          <button key={f} onClick={() => { setSelectedFile(f); fetchAndAnalyze(f); }} style={{
-                            display: "block", width: "100%", padding: "4px 8px", marginBottom: 1,
-                            border: "none", textAlign: "left", cursor: "pointer",
-                            background: active ? "#1a6060" : "transparent",
-                            color: active ? "#fff" : "#000",
-                            fontSize: 11, fontWeight: active ? 700 : 400,
-                          }}>
-                            <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {convoNum ? `Conversation ${convoNum}` : prettifyName(f)}
-                            </div>
-                            {matches.map((line, mi) => {
-                              const idx = line.toLowerCase().indexOf(q);
-                              const start = Math.max(0, idx - 20);
-                              const snippet = (start > 0 ? "…" : "") + line.slice(start, start + 50) + (start + 50 < line.length ? "…" : "");
-                              const sIdx = snippet.toLowerCase().indexOf(q);
-                              return (
-                                <div key={mi} style={{ fontSize: 9, color: active ? "#b0d8d8" : "#555", marginTop: 1, lineHeight: 1.3, fontStyle: "italic" }}>
-                                  "{sIdx >= 0 ? (
-                                    <>{snippet.slice(0, sIdx)}<span style={{ color: active ? "#fff" : "#1a6060", fontWeight: 700, fontStyle: "normal" }}>{snippet.slice(sIdx, sIdx + q.length)}</span>{snippet.slice(sIdx + q.length)}</>
-                                  ) : snippet}"
-                                </div>
-                              );
-                            })}
-                          </button>
+                          <div style={{ fontSize: 11, color: "#52525b", marginTop: 3, fontFamily: "'Rajdhani', sans-serif", lineHeight: 1.4 }}>
+                            "{sIdx >= 0 ? (
+                              <>{raw.slice(0, sIdx)}<span style={{ color: character.color, fontWeight: 600 }}>{raw.slice(sIdx, sIdx + q.length)}</span>{raw.slice(sIdx + q.length)}</>
+                            ) : raw}"
+                          </div>
                         );
-                      };
+                      })()}
+                    </button>
+                  );
+                })}
+                {matches.length > 8 && (
+                  <div style={{ fontSize: 10, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 12px" }}>
+                    +{matches.length - 8} more — refine your search to narrow results
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : !char ? (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12, opacity: 0.4 }}>
+            <div style={{ fontSize: 48 }}>⚗️</div>
+            <div style={{ fontSize: 14, fontFamily: "'Rajdhani', monospace", letterSpacing: 2 }}>SELECT A CHARACTER</div>
+          </div>
+        ) : (
+          <>
+            {/* Character header */}
+            <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid #1a1a24", background: `linear-gradient(135deg, ${accentColor}08, transparent)` }}>
+              <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "'Chakra Petch', monospace", color: accentColor }}>
+                {char.portrait} {char.id}
+              </div>
+              <div style={{ fontSize: 12, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginTop: 2 }}>
+                {convoFiles.length > 0 ? `${convoFiles.length} conversations` + (charCache?.index ? " · indexed ✓" : "") : corsError && !isPreloading ? "Upload SVGs manually (see below)" : isPreloading ? "Indexing in background..." : "Loading..."}
+              </div>
+            </div>
 
-                      return (
-                        <>
-                          {Object.entries(ranks).sort(([a],[b]) => a - b).map(([rank, files]) => {
-                            const visibleFiles = files.sort().filter(filterFn);
-                            if (visibleFiles.length === 0) return null;
-                            return (
-                              <div key={rank}>
-                                <div className="kim-section-label">Rank {rank}</div>
-                                {visibleFiles.map(renderConvoButton)}
-                              </div>
-                            );
-                          })}
-                          {(() => {
-                            const visibleOther = other.sort().filter(filterFn);
-                            if (visibleOther.length === 0) return null;
-                            return (
-                              <div>
-                                <div className="kim-section-label">OTHER</div>
-                                {visibleOther.map(renderConvoButton)}
-                              </div>
-                            );
-                          })()}
-                          {isSearching && filteredSet && filteredSet.length === 0 && (
-                            <div style={{ padding: 10, textAlign: "center", color: "#555", fontSize: 10 }}>
-                              No conversations match "{debouncedQuery}"
-                            </div>
-                          )}
-                        </>
-                      );
+            <div className="main-layout" style={{ display: "flex", flex: 1, minHeight: 0 }}>
+              {/* Conversation list */}
+              <div className="convo-panel" style={{ width: 240, minWidth: 240, borderRight: "1px solid #1a1a24", overflowY: "auto", padding: "8px", display: "flex", flexDirection: "column" }}>
+                {/* Search bar */}
+                {convoFiles.length > 0 && (
+                  <div style={{ padding: "4px 0 8px", borderBottom: "1px solid #1a1a24", marginBottom: 8, flexShrink: 0 }}>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type="text"
+                        placeholder="Search dialog..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{
+                          width: "100%", padding: "7px 10px 7px 28px", borderRadius: 6,
+                          border: `1px solid ${searchQuery ? accentColor + "44" : "#1a1a24"}`,
+                          background: "#0c0c14", color: "#d4d4d8", fontSize: 12,
+                          fontFamily: "'Rajdhani', sans-serif", outline: "none",
+                          transition: "border-color 0.15s",
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = accentColor + "66"}
+                        onBlur={(e) => e.target.style.borderColor = searchQuery ? accentColor + "44" : "#1a1a24"}
+                      />
+                      <span style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", fontSize: 12, opacity: 0.3, pointerEvents: "none" }}>🔍</span>
+                      {searchQuery && (
+                        <button onClick={() => { setSearchQuery(""); setDebouncedQuery(""); }} style={{
+                          position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
+                          background: "none", border: "none", color: "#52525b", cursor: "pointer", fontSize: 14, padding: 2,
+                        }}>×</button>
+                      )}
+                    </div>
+                    {/* Indexing progress */}
+                    {isPreloading && globalProgress.char === char?.id && (
+                      <div style={{ marginTop: 6, fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace", display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 10, height: 10, border: `2px solid ${accentColor}44`, borderTopColor: accentColor, borderRadius: "50%", animation: "spin 0.6s linear infinite", flexShrink: 0 }} />
+                        Indexing {globalProgress.done}/{globalProgress.total}...
+                      </div>
+                    )}
+                    {debouncedQuery && charCache?.index && (() => {
+                      const filtered = getFilteredFiles(convoFiles);
+                      return filtered ? (
+                        <div style={{ marginTop: 4, fontSize: 10, color: "#52525b", fontFamily: "'Rajdhani', monospace" }}>
+                          {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+                        </div>
+                      ) : null;
                     })()}
                   </div>
-                </div>
+                )}
 
-                {/* Chat / Route display area */}
-                <div className="route-panel" style={{ flex: 1, overflowY: "auto", padding: "8px 10px 40px", background: "#e8e4dc" }}>
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                {corsError && !isPreloading && convoFiles.length === 0 && (
+                  <div style={{ padding: "12px", background: "#1c1917", border: "1px solid #44403c", borderRadius: 8, marginBottom: 8, fontSize: 11, color: "#a8a29e", lineHeight: 1.6 }}>
+                    <strong style={{ color: "#fbbf24" }}>⚠️ CORS Blocked</strong><br/>
+                    Can't auto-fetch from kim.browse.wf.<br/><br/>
+                    <strong>To fix:</strong> Download SVGs from{" "}
+                    <a href={BASE + char.dir + "/"} target="_blank" rel="noreferrer" style={{ color: accentColor }}>kim.browse.wf</a>
+                    {" "}and use the <strong>📁 Upload SVG</strong> button in the sidebar.
+                  </div>
+                )}
+                {!convoFiles.length && !corsError && !isPreloading && <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12 }}>Loading file list...</div>}
+                {!convoFiles.length && isPreloading && (
+                  <div style={{ padding: 16, textAlign: "center", color: "#52525b", fontSize: 12, fontFamily: "'Rajdhani', monospace", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 16, height: 16, border: `2px solid ${accentColor}44`, borderTopColor: accentColor, borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+                    Waiting for background indexer...
+                  </div>
+                )}
 
-                  {loading && (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 40, flexDirection: "column", gap: 10 }}>
-                      <div style={{ width: 20, height: 20, border: "2px solid #1a6060", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
-                      <div style={{ fontSize: 11, color: "#555" }}>Parsing flowchart...</div>
-                    </div>
-                  )}
+                {(() => {
+                  const filteredSet = getFilteredFiles(convoFiles);
+                  const isSearching = debouncedQuery.trim().length > 0;
+                  const filterFn = (f) => !filteredSet || filteredSet.includes(f);
+                  const matchingLines = (f) => isSearching ? getMatchingLines(f) : [];
 
-                  {error && !loading && (
-                    <div style={{
-                      padding: "6px 10px",
-                      background: "#ffffc0",
-                      borderTop: "1px solid #808080", borderLeft: "1px solid #808080",
-                      borderRight: "1px solid #fff", borderBottom: "1px solid #fff",
-                      fontSize: 11, color: "#606000", lineHeight: 1.5,
-                    }}>
-                      ⚠️ {error}
-                    </div>
-                  )}
-
-                  {!loading && !analysis && !error && (
-                    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8, opacity: 0.5, paddingTop: 60 }}>
-                      <div style={{ fontSize: 28 }}>💬</div>
-                      <div style={{ fontSize: 11, color: "#555", letterSpacing: 1 }}>
-                        {corsError ? "UPLOAD AN SVG TO START" : "PICK A CONVERSATION"}
-                      </div>
-                    </div>
-                  )}
-
-                  {analysis && !loading && (
-                    <>
-                      {/* Route header */}
-                      <div style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        marginBottom: 8, paddingBottom: 6,
-                        borderBottom: "1px solid #b0aca4",
-                        flexWrap: "wrap", gap: 6,
+                  const renderConvoButton = (f) => {
+                    const active = selectedFile === f;
+                    const convoNum = f.match(/Convo(\d+)/)?.[1];
+                    const matches = matchingLines(f);
+                    const q = normalizeSearch(debouncedQuery);
+                    return (
+                      <button key={f} onClick={() => { setSelectedFile(f); fetchAndAnalyze(f); }} style={{
+                        display: "block", width: "100%", padding: "7px 10px", marginBottom: 2,
+                        borderRadius: 5, border: "none", textAlign: "left", cursor: "pointer",
+                        background: active ? `${accentColor}18` : "transparent",
+                        color: active ? accentColor : "#71717a",
+                        fontFamily: "'Rajdhani', sans-serif", fontSize: 12, fontWeight: active ? 600 : 400,
                       }}>
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "#000" }}>
-                            {prettifyName(selectedFile || "")}
-                          </div>
-                          <div style={{ fontSize: 9, color: "#555", marginTop: 1 }}>
-                            {analysis.steps?.length || 0} steps · optimal route
-                          </div>
-                        </div>
-                        <div style={{
-                          display: "flex", alignItems: "center", gap: 5,
-                          padding: "4px 10px",
-                          borderTop: "1px solid #fff", borderLeft: "1px solid #fff",
-                          borderRight: "1px solid #808080", borderBottom: "1px solid #808080",
-                          background: "#d4d0c8",
-                        }}>
-                          <span style={{ fontSize: 9, color: "#1a6060", fontFamily: "'Chakra Petch', monospace", fontWeight: 700 }}>MAX</span>
-                          <span style={{ fontSize: 18, fontWeight: 700, color: "#1a6060", fontFamily: "'Chakra Petch', monospace" }}>
-                            +{analysis.totalChem}
-                          </span>
-                          <span style={{ fontSize: 14 }}>⚗️</span>
-                        </div>
-                      </div>
-
-                      {/* Steps / chat messages */}
-                      {analysis.steps?.map((step, i) => {
-                        const isChoice = step.type === "choice";
-                        const isChem = step.type === "chem";
-
-                        if (isChem) {
+                        <div>{convoNum ? `Conversation ${convoNum}` : prettifyName(f)}</div>
+                        {matches.map((line, mi) => {
+                          const idx = line.toLowerCase().indexOf(q);
+                          const start = Math.max(0, idx - 25);
+                          const snippet = (start > 0 ? "…" : "") + line.slice(start, start + 60) + (start + 60 < line.length ? "…" : "");
+                          const sIdx = snippet.toLowerCase().indexOf(q);
                           return (
-                            <div key={i} className="step-card" style={{ animationDelay: `${i * 0.03}s`, display: "flex", alignItems: "center", gap: 8, padding: "4px 0 4px 8px", marginBottom: 4 }}>
-                              <span style={{
-                                display: "inline-flex", alignItems: "center", gap: 4,
-                                background: "#1a6060",
-                                color: "#fff", fontWeight: 700, fontSize: 11,
-                                padding: "2px 10px",
-                                borderTop: "1px solid #3d9090", borderLeft: "1px solid #3d9090",
-                                borderRight: "1px solid #0a3030", borderBottom: "1px solid #0a3030",
-                                fontFamily: "'Chakra Petch', monospace",
-                              }}>
-                                +{step.chem} Chemistry ⚗️
-                              </span>
+                            <div key={mi} style={{ fontSize: 10, color: "#52525b", marginTop: 2, lineHeight: 1.4, fontStyle: "italic" }}>
+                              "{sIdx >= 0 ? (
+                                <>{snippet.slice(0, sIdx)}<span style={{ color: accentColor, fontWeight: 600, fontStyle: "normal" }}>{snippet.slice(sIdx, sIdx + q.length)}</span>{snippet.slice(sIdx + q.length)}</>
+                              ) : snippet}"
                             </div>
                           );
-                        }
+                        })}
+                      </button>
+                    );
+                  };
 
+                  return (
+                    <>
+                      {Object.entries(ranks).sort(([a],[b]) => a - b).map(([rank, files]) => {
+                        const visibleFiles = files.sort().filter(filterFn);
+                        if (visibleFiles.length === 0) return null;
                         return (
-                          <div key={i} className="step-card" style={{ animationDelay: `${i * 0.03}s`, marginBottom: 6 }}>
-                            {isChoice ? (
-                              /* Player choice bubble */
-                              <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-                                <div style={{
-                                  width: 22, height: 22, flexShrink: 0, marginTop: 1,
-                                  background: "#1a6060",
-                                  border: "1px solid #3d9090",
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  fontSize: 11,
-                                }}>🛡</div>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                                    <span style={{
-                                      background: "#1a6060", color: "#fff",
-                                      fontSize: 9, fontWeight: 700,
-                                      padding: "1px 6px",
-                                      borderTop: "1px solid #3d9090", borderLeft: "1px solid #3d9090",
-                                      borderRight: "1px solid #0a3030", borderBottom: "1px solid #0a3030",
-                                    }}>PICK THIS</span>
-                                    {step.chem > 0 && (
-                                      <span style={{
-                                        display: "inline-flex", alignItems: "center", gap: 2,
-                                        color: "#1a6060", fontWeight: 700, fontSize: 10,
-                                        fontFamily: "'Chakra Petch', monospace",
-                                      }}>+{step.chem} ⚗️</span>
-                                    )}
-                                  </div>
-                                  <div style={{
-                                    padding: "4px 8px",
-                                    background: "#fff",
-                                    borderTop: "1px solid #808080", borderLeft: "1px solid #808080",
-                                    borderRight: "1px solid #fff", borderBottom: "1px solid #fff",
-                                    fontSize: 11, lineHeight: 1.5, color: "#1a6060", fontWeight: 700,
-                                  }}>
-                                    "{step.text}"
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              /* NPC dialog bubble */
-                              <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
-                                <div style={{
-                                  width: 22, height: 22, flexShrink: 0, marginTop: 1,
-                                  background: accentColor + "33",
-                                  border: "1px solid " + accentColor + "66",
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  fontSize: 11,
-                                }}>{char.portrait}</div>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-                                    <span style={{ fontSize: 10, fontWeight: 700, color: accentColor }}>{char.id.toUpperCase()}</span>
-                                    {step.chem > 0 && (
-                                      <span style={{
-                                        display: "inline-flex", alignItems: "center", gap: 2,
-                                        color: "#1a6060", fontWeight: 700, fontSize: 10,
-                                        fontFamily: "'Chakra Petch', monospace",
-                                      }}>+{step.chem} ⚗️</span>
-                                    )}
-                                  </div>
-                                  <div style={{
-                                    padding: "4px 8px",
-                                    background: "#fff",
-                                    borderTop: "1px solid #808080", borderLeft: "1px solid #808080",
-                                    borderRight: "1px solid #fff", borderBottom: "1px solid #fff",
-                                    fontSize: 11, lineHeight: 1.5, color: "#000",
-                                  }}>
-                                    "{step.text}"
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                          <div key={rank} style={{ marginBottom: 12 }}>
+                            <div style={{ fontSize: 10, letterSpacing: 3, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 8px", textTransform: "uppercase" }}>Rank {rank}</div>
+                            {visibleFiles.map(renderConvoButton)}
+                          </div>
+                        );
+                      })}
+                      {(() => {
+                        const visibleOther = other.sort().filter(filterFn);
+                        if (visibleOther.length === 0) return null;
+                        return (
+                          <div style={{ marginBottom: 12 }}>
+                            <div style={{ fontSize: 10, letterSpacing: 3, color: "#3f3f46", fontFamily: "'Rajdhani', monospace", padding: "4px 8px" }}>OTHER</div>
+                            {visibleOther.map(renderConvoButton)}
+                          </div>
+                        );
+                      })()}
+                      {isSearching && filteredSet && filteredSet.length === 0 && (
+                        <div style={{ padding: 16, textAlign: "center", color: "#3f3f46", fontSize: 12, fontFamily: "'Rajdhani', monospace" }}>
+                          No conversations match "{debouncedQuery}"
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+                </div>
+              </div>
 
-                            {/* Alternatives panel */}
+              {/* Route display */}
+              <div className="route-panel" style={{ flex: 1, overflowY: "auto", padding: "20px 24px 80px" }}>
+                {loading && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 60, flexDirection: "column", gap: 12 }}>
+                    <div style={{ width: 24, height: 24, border: `2px solid ${accentColor}44`, borderTopColor: accentColor, borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+                    <div style={{ fontSize: 12, color: "#52525b", fontFamily: "'Rajdhani', monospace" }}>Parsing flowchart...</div>
+                  </div>
+                )}
+
+                {error && !loading && (
+                  <div style={{ padding: "16px", background: "#1c1917", border: "1px solid #44403c", borderRadius: 8, color: "#fbbf24", fontSize: 13, lineHeight: 1.6 }}>
+                    ⚠️ {error}
+                  </div>
+                )}
+
+                {!loading && !analysis && !error && (
+                  <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 8, opacity: 0.3, paddingTop: 80 }}>
+                    <div style={{ fontSize: 32 }}>💬</div>
+                    <div style={{ fontSize: 12, fontFamily: "'Rajdhani', monospace", letterSpacing: 2 }}>
+                      {corsError ? "UPLOAD AN SVG TO START" : "PICK A CONVERSATION"}
+                    </div>
+                  </div>
+                )}
+
+                {analysis && !loading && (
+                  <>
+                    {/* Route header */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'Chakra Petch', monospace", color: "#e4e4e7" }}>
+                          {prettifyName(selectedFile || "")}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginTop: 2 }}>
+                          {analysis.steps?.length || 0} steps · optimal route
+                        </div>
+                      </div>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        background: analysis.totalChem > 0 ? "linear-gradient(135deg, #16a34a22, #16a34a11)" : "#1a1a2411",
+                        border: `1px solid ${analysis.totalChem > 0 ? "#16a34a44" : "#27272a"}`,
+                        padding: "8px 14px", borderRadius: 8,
+                      }}>
+                        <span style={{ fontSize: 10, color: analysis.totalChem > 0 ? "#86efac" : "#52525b", fontFamily: "'Rajdhani', monospace", letterSpacing: 1 }}>MAX</span>
+                        <span style={{ fontSize: 22, fontWeight: 700, color: analysis.totalChem > 0 ? "#4ade80" : "#52525b", fontFamily: "'Chakra Petch', monospace" }}>
+                          +{analysis.totalChem}
+                        </span>
+                        <span>⚗️</span>
+                      </div>
+                    </div>
+
+                    {/* Steps timeline */}
+                    {analysis.steps?.map((step, i) => {
+                      const isChoice = step.type === "choice";
+                      const isChem = step.type === "chem";
+
+                      if (isChem) {
+                        return (
+                          <div key={i} className="step-card" style={{ animationDelay: `${i * 0.03}s`, display: "flex", alignItems: "center", gap: 8, padding: "8px 0 8px 32px", position: "relative" }}>
+                            {i < analysis.steps.length - 1 && <div style={{ position: "absolute", left: 14, top: 0, bottom: 0, width: 1, background: `${accentColor}22` }} />}
+                            <div style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", width: 11, height: 11, borderRadius: "50%", background: "#16a34a44", border: "2px solid #22c55e" }} />
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              background: "linear-gradient(135deg, #16a34a, #22c55e)",
+                              color: "#fff", fontWeight: 700, fontSize: 12,
+                              padding: "4px 12px", borderRadius: 99, fontFamily: "'Chakra Petch', monospace",
+                            }}>
+                              +{step.chem} Chemistry ⚗️
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={i} className="step-card" style={{ animationDelay: `${i * 0.03}s`, position: "relative", paddingLeft: 32, marginBottom: 6 }}>
+                          {i < analysis.steps.length - 1 && <div style={{ position: "absolute", left: 14, top: 24, bottom: 0, width: 1, background: `${accentColor}22` }} />}
+                          <div style={{
+                            position: "absolute", left: 8, top: 14, width: 13, height: 13, borderRadius: "50%",
+                            background: isChoice ? `${accentColor}33` : "#18181b",
+                            border: `2px solid ${isChoice ? accentColor : "#3f3f46"}`,
+                          }} />
+                          <div style={{
+                            background: isChoice ? `${accentColor}0a` : "rgba(255,255,255,0.015)",
+                            border: `1px solid ${isChoice ? `${accentColor}30` : "rgba(255,255,255,0.04)"}`,
+                            borderRadius: 8, padding: "10px 14px",
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                              {isChoice ? (
+                                <span style={{
+                                  background: accentColor, color: "#0a0a0f", fontSize: 9, fontWeight: 700,
+                                  padding: "1px 6px", borderRadius: 3, letterSpacing: 1, fontFamily: "'Rajdhani', monospace",
+                                }}>PICK THIS</span>
+                              ) : (
+                                <span style={{ fontSize: 9, letterSpacing: 2, color: "#3f3f46", fontFamily: "'Rajdhani', monospace" }}>
+                                  {char.id.toUpperCase()}
+                                </span>
+                              )}
+                              {step.chem > 0 && (
+                                <span style={{
+                                  display: "inline-flex", alignItems: "center", gap: 3,
+                                  background: "linear-gradient(135deg, #16a34a, #22c55e)",
+                                  color: "#fff", fontWeight: 700, fontSize: 10,
+                                  padding: "1px 7px", borderRadius: 99,
+                                }}>+{step.chem} ⚗️</span>
+                              )}
+                            </div>
+                            <div style={{
+                              fontSize: 13, lineHeight: 1.6, fontFamily: "'Rajdhani', sans-serif", fontWeight: 500,
+                              color: isChoice ? "#e4e4e7" : "#a1a1aa",
+                              borderLeft: isChoice ? "none" : `2px solid ${accentColor}22`,
+                              paddingLeft: isChoice ? 0 : 10,
+                            }}>
+                              "{step.text}"
+                            </div>
+
+                            {/* Show alternatives with chemistry — sorted best-first so player can pick best available */}
                             {step.alternatives?.length > 0 && (
-                              <div style={{
-                                marginTop: 4, marginLeft: 28, padding: "4px 8px",
-                                background: "#d4d0c8",
-                                borderTop: "1px solid #fff", borderLeft: "1px solid #fff",
-                                borderRight: "1px solid #808080", borderBottom: "1px solid #808080",
-                              }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, color: "#555", letterSpacing: 1, marginBottom: 3 }}>
-                                  IF UNAVAILABLE, PICK IN ORDER:
-                                </div>
+                              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                                <div style={{ fontSize: 9, letterSpacing: 2, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginBottom: 4 }}>IF UNAVAILABLE, PICK IN ORDER:</div>
                                 {step.alternatives.map((alt, ai) => (
-                                  <div key={ai} style={{
-                                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                                    padding: "2px 6px", marginBottom: 2,
-                                    background: "#e8e4dc",
-                                    borderTop: "1px solid #808080", borderLeft: "1px solid #808080",
-                                    borderRight: "1px solid #fff", borderBottom: "1px solid #fff",
-                                  }}>
-                                    <span style={{ fontSize: 10, color: "#333" }}>"{alt.text}"</span>
+                                  <div key={ai} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px", marginBottom: 3, borderLeft: `2px solid ${accentColor}22`, fontFamily: "'Rajdhani', sans-serif" }}>
+                                    <span style={{ fontSize: 11, color: "#52525b" }}>"{alt.text}"</span>
                                     {alt.chem !== null && (
-                                      <span style={{
-                                        fontSize: 9, color: "#1a6060", fontFamily: "'Chakra Petch', monospace",
-                                        flexShrink: 0, marginLeft: 8, fontWeight: 700,
-                                      }}>+{alt.chem} ⚗️</span>
+                                      <span style={{ fontSize: 10, color: "#4ade8055", fontFamily: "'Chakra Petch', monospace", flexShrink: 0, marginLeft: 8 }}>+{alt.chem} ⚗️</span>
                                     )}
                                   </div>
                                 ))}
                               </div>
                             )}
                           </div>
-                        );
-                      })}
-
-                      {/* Total footer */}
-                      <div style={{
-                        textAlign: "center", padding: "10px 16px", marginTop: 10,
-                        background: "#d4d0c8",
-                        borderTop: "1px solid #fff", borderLeft: "1px solid #fff",
-                        borderRight: "1px solid #808080", borderBottom: "1px solid #808080",
-                      }}>
-                        <div style={{ fontSize: 9, letterSpacing: 2, color: "#555", marginBottom: 2, fontWeight: 700 }}>TOTAL CHEMISTRY</div>
-                        <div style={{
-                          fontSize: 24, fontWeight: 700,
-                          fontFamily: "'Chakra Petch', monospace",
-                          color: "#1a6060",
-                        }}>
-                          +{analysis.totalChem} ⚗️
                         </div>
+                      );
+                    })}
+
+                    {/* Total footer */}
+                    <div style={{
+                      textAlign: "center", padding: "20px 16px", marginTop: 16,
+                      background: `linear-gradient(135deg, ${accentColor}08, transparent)`,
+                      border: `1px solid ${accentColor}22`, borderRadius: 10,
+                    }}>
+                      <div style={{ fontSize: 10, letterSpacing: 3, color: "#52525b", fontFamily: "'Rajdhani', monospace", marginBottom: 4 }}>TOTAL CHEMISTRY</div>
+                      <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "'Chakra Petch', monospace", color: analysis.totalChem > 0 ? "#4ade80" : "#52525b" }}>
+                        +{analysis.totalChem} ⚗️
                       </div>
-                    </>
-                  )}
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          )}
-        </main>
-      </div>
-
-      {/* Taskbar */}
-      <div className="kim-title-bar" style={{ justifyContent: "space-between", padding: "2px 8px" }}>
-        <span style={{ fontSize: 10, color: "#fff" }}>
-          TO DO: {analysis && selectedFile
-            ? `Viewing ${prettifyName(selectedFile)}`
-            : char
-              ? `Select a conversation for ${char.id}`
-              : "Select a contact"}
-        </span>
-        <span style={{ fontSize: 10, color: "#b0d8d8" }}>April 11, 1999 🖥</span>
-      </div>
+          </>
+        )}
+      </main>
     </div>
   );
 }
