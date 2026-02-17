@@ -46,22 +46,22 @@ const CORS_PROXY = "https://corsproxy.io/?";
 const LOCAL_DATA = window.WF1999_DATA || null;
 const HAS_LOCAL = !!LOCAL_DATA;
 const CHARACTERS = [
-  { id: "Aoi", dir: "AoiDialogue_rom.dialogue", color: "#60a5fa", portrait: "❄️" },
-  { id: "Arthur", dir: "ArthurDialogue_rom.dialogue", color: "#f87171", portrait: "⚔️" },
-  { id: "Eleanor", dir: "EleanorDialogue_rom.dialogue", color: "#c084fc", portrait: "🌙" },
-  { id: "Flare", dir: "FlareDialogue_rom.dialogue", color: "#fb923c", portrait: "🔥" },
-  { id: "Hex", dir: "HexDialogue_rom.dialogue", color: "#a78bfa", portrait: "🔮" },
-  { id: "Jabir", dir: "JabirDialogue_rom.dialogue", color: "#34d399", portrait: "🧪" },
-  { id: "Kaya", dir: "KayaDialogue_rom.dialogue", color: "#f472b6", portrait: "🎵" },
-  { id: "Lettie", dir: "LettieDialogue_rom.dialogue", color: "#fbbf24", portrait: "✨" },
-  { id: "Loid", dir: "LoidDialogue_rom.dialogue", color: "#94a3b8", portrait: "🤖" },
-  { id: "Lyon", dir: "LyonDialogue_rom.dialogue", color: "#2dd4bf", portrait: "🐺" },
-  { id: "Marie", dir: "MarieDialogue_rom.dialogue", color: "#e879f9", portrait: "💜" },
-  { id: "Minerva", dir: "MinervaDialogue_rom.dialogue", color: "#fca5a5", portrait: "🦅" },
-  { id: "MinervaVelemir", dir: "MinervaVelemirDialogue_rom.dialogue", color: "#fca5a5", portrait: "🦅🐻" },
-  { id: "Quincy", dir: "QuincyDialogue_rom.dialogue", color: "#fb923c", portrait: "🎯" },
-  { id: "Roathe", dir: "RoatheDialogue_rom.dialogue", color: "#6ee7b7", portrait: "🌿" },
-  { id: "Velemir", dir: "VelimirDialogue_rom.dialogue", color: "#a3a3a3", portrait: "🐻" },
+  { id: "Aoi",          dir: "AoiDialogue_rom.dialogue",          color: "#60a5fa", portrait: "❄️",   screen: "xX GLIMMER Xx" },
+  { id: "Arthur",       dir: "ArthurDialogue_rom.dialogue",       color: "#f87171", portrait: "⚔️",   screen: "Broadsword" },
+  { id: "Eleanor",      dir: "EleanorDialogue_rom.dialogue",      color: "#c084fc", portrait: "🌙",   screen: "Salem" },
+  { id: "Flare",        dir: "FlareDialogue_rom.dialogue",        color: "#fb923c", portrait: "🔥",   screen: "Liminus_Star" },
+  { id: "Hex",          dir: "HexDialogue_rom.dialogue",          color: "#a78bfa", portrait: "🔮",   screen: null },
+  { id: "Jabir",        dir: "JabirDialogue_rom.dialogue",        color: "#34d399", portrait: "🧪",   screen: null },
+  { id: "Kaya",         dir: "KayaDialogue_rom.dialogue",         color: "#f472b6", portrait: "🎵",   screen: "KOLTrial_5115" },
+  { id: "Lettie",       dir: "LettieDialogue_rom.dialogue",       color: "#fbbf24", portrait: "✨",   screen: "Belladona ~{@" },
+  { id: "Loid",         dir: "LoidDialogue_rom.dialogue",         color: "#94a3b8", portrait: "🤖",   screen: "POM2_LAB1" },
+  { id: "Lyon",         dir: "LyonDialogue_rom.dialogue",         color: "#2dd4bf", portrait: "🐺",   screen: null },
+  { id: "Marie",        dir: "MarieDialogue_rom.dialogue",        color: "#e879f9", portrait: "💜",   screen: null },
+  { id: "Minerva",      dir: "MinervaDialogue_rom.dialogue",      color: "#fca5a5", portrait: "🦅",   screen: "MomToxicated" },
+  { id: "MinervaVelemir", dir: "MinervaVelemirDialogue_rom.dialogue", color: "#fca5a5", portrait: "🦅🐻", screen: null },
+  { id: "Quincy",       dir: "QuincyDialogue_rom.dialogue",       color: "#fb923c", portrait: "🎯",   screen: "Soldja1Shot1kil" },
+  { id: "Roathe",       dir: "RoatheDialogue_rom.dialogue",       color: "#6ee7b7", portrait: "🌿",   screen: null },
+  { id: "Velemir",      dir: "VelimirDialogue_rom.dialogue",      color: "#a3a3a3", portrait: "🐻",   screen: "PapaPolar" },
 ];
 
 /* ─── SVG PARSER ─── */
@@ -647,7 +647,10 @@ function App() {
                 borderLeft: active ? `2px solid ${c.color}` : "2px solid transparent",
               }}>
                 <span style={{ fontSize: 14 }}>{c.portrait}</span>
-                <span style={{ flex: 1 }}>{c.id}</span>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: "block" }}>{c.id}</span>
+                  {c.screen && <span style={{ display: "block", fontSize: 10, opacity: 0.5, fontWeight: 400, letterSpacing: 0.5 }}>{c.screen}</span>}
+                </span>
                 {cache[c.dir]?.index && <span style={{ fontSize: 8, color: "#4ade80", opacity: 0.6 }}>●</span>}
                 {isPreloading && globalProgress.char === c.id && <div style={{ width: 6, height: 6, border: "1.5px solid #60a5fa44", borderTopColor: "#60a5fa", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />}
               </button>
