@@ -262,9 +262,6 @@ function extractDialogTextStatic(svgText) {
   const doc = parser.parseFromString(svgText, "image/svg+xml");
   const lines = [];
   doc.querySelectorAll("g.node").forEach((g) => {
-    const shape = g.querySelector("ellipse") || g.querySelector("polygon");
-    const stroke = shape?.getAttribute("stroke") || "";
-    if (stroke !== "blue" && stroke !== "red") return;
     const texts = [];
     g.querySelectorAll("text").forEach((t) => {
       const txt = t.textContent?.trim();
